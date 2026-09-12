@@ -18,7 +18,8 @@ from library_index import connect_database, format_duration
 
 
 def fetch_video_media(conn, media_id: int):
-    """Media de type vidéo avec le chemin de bibliothèque de son item.
+    """Media de type vidéo, avec le chemin de bibliothèque et le titre
+    de son item.
 
     None si l'id n'existe pas ou si ce n'est pas une vidéo : cette
     fonction sert de garde commune aux deux routes vidéo.
@@ -28,8 +29,10 @@ def fetch_video_media(conn, media_id: int):
         """
         SELECT
             media.id,
+            media.item_id,
             media.relative_path,
             media.extension,
+            items.title AS item_title,
             items.library_path
         FROM media
         JOIN items ON items.id = media.item_id
@@ -37,6 +40,35 @@ def fetch_video_media(conn, media_id: int):
         """,
         (media_id,),
     ).fetchone()
+
+
+def fetch_video_playlist(conn, item_id: int):
+    """Toutes les vidéos d'un item, dans l'ordre de sort_order."""
+
+    return conn.execute(
+        """
+        SELECT id, relative_path, parent_path, sort_order
+        FROM media
+        WHERE item_id = ? AND media_type = 'video'
+        ORDER BY sort_order
+        """,
+        (item_id,),
+    ).fetchall()
+
+
+def group_by_parent(rows):
+    """Regroupe des lignes media/resource par parent_path.
+
+    Un dict garde l'ordre de première apparition de chaque
+    parent_path, contrairement à itertools.groupby qui ne fusionne
+    que des lignes déjà consécutives.
+    """
+
+    grouped: dict[str, list] = {}
+    for row in rows:
+        grouped.setdefault(row["parent_path"], []).append(row)
+
+    return list(grouped.items())
 
 
 def create_app(library_root: Path, db_path: Path) -> Flask:
@@ -116,17 +148,22 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
         finally:
             conn.close()
 
-        chapters_by_parent: dict[str, list] = {}
-        for row in media_rows:
-            chapters_by_parent.setdefault(row["parent_path"], []).append(row)
+        chapters = group_by_parent(media_rows)
 
-        chapters = list(chapters_by_parent.items())
+        presentation = next(
+            (r for r in resources if r["resource_type"] == "presentation"),
+            None,
+        )
+        resources = [
+            r for r in resources if r["resource_type"] != "presentation"
+        ]
 
         return render_template(
             "item_detail.html",
             item=item,
             chapters=chapters,
             resources=resources,
+            presentation=presentation,
             format_duration=format_duration,
         )
 
@@ -136,13 +173,31 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
 
         try:
             media = fetch_video_media(conn, media_id)
+
+            if media is None:
+                abort(404)
+
+            playlist = fetch_video_playlist(conn, media["item_id"])
         finally:
             conn.close()
 
-        if media is None:
-            abort(404)
+        chapters = group_by_parent(playlist)
 
-        return render_template("video_player.html", media=media)
+        flat_ids = [row["id"] for row in playlist]
+        position = flat_ids.index(media_id)
+        prev_id = flat_ids[position - 1] if position > 0 else None
+        next_id = (
+            flat_ids[position + 1] if position + 1 < len(flat_ids) else None
+        )
+
+        return render_template(
+            "video_player.html",
+            media=media,
+            chapters=chapters,
+            current_media_id=media_id,
+            prev_id=prev_id,
+            next_id=next_id,
+        )
 
     @app.route("/media/<int:media_id>/file")
     def media_file(media_id: int):
@@ -159,6 +214,40 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
         library_root = app.config["LIBRARY_ROOT"]
         file_path = (
             library_root / media["library_path"] / media["relative_path"]
+        ).resolve()
+
+        if library_root not in file_path.parents or not file_path.is_file():
+            abort(404)
+
+        mimetype, _ = mimetypes.guess_type(file_path.name)
+
+        return send_file(file_path, mimetype=mimetype)
+
+    @app.route("/resource/<int:resource_id>/file")
+    def resource_file(resource_id: int):
+        conn = connect_database(app.config["DB_PATH"])
+
+        try:
+            resource = conn.execute(
+                """
+                SELECT resources.relative_path, items.library_path
+                FROM resources
+                JOIN items ON items.id = resources.item_id
+                WHERE resources.id = ?
+                """,
+                (resource_id,),
+            ).fetchone()
+        finally:
+            conn.close()
+
+        if resource is None:
+            abort(404)
+
+        library_root = app.config["LIBRARY_ROOT"]
+        file_path = (
+            library_root
+            / resource["library_path"]
+            / resource["relative_path"]
         ).resolve()
 
         if library_root not in file_path.parents or not file_path.is_file():

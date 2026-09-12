@@ -95,6 +95,14 @@
             white-space: nowrap;
             margin-left: 15px;
         }
+
+        .presentation-frame {
+            width: 100%;
+            height: 60vh;
+            border: 0;
+            border-radius: 8px;
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -107,6 +115,13 @@
     </div>
 
     <div class="container">
+        {% if presentation %}
+        <div class="card">
+            <iframe class="presentation-frame"
+                    src="{{ url_for('resource_file', resource_id=presentation['id']) }}"></iframe>
+        </div>
+        {% endif %}
+
         {% for parent_path, media_list in chapters %}
         <div class="card">
             <h3>{{ parent_path if parent_path else 'Racine' }}</h3>
