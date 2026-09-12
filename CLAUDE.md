@@ -126,8 +126,19 @@ position pour EPUB.
 - Nombre de pages des PDF.
 - Couvertures : aucun des quatre cas n'a de fichier image. À extraire
   (première page PDF, pochette M4B, image de vidéo) ou à récupérer en ligne.
-- Métadonnées internes normalisées, séparées des annotations personnelles
-  pour qu'un rescan n'écrase pas les notes.
+- Métadonnées enrichies, quatre sources par ordre de priorité :
+  1. Moissonnage des pages de vente des plateformes commerciales
+     (TUTO.com, Udemy, LinkedIn, Elephorm...).
+  2. Fichiers locaux : pour les formations achetées, la page
+     000 - Presentation.html livrée avec le contenu s'affiche telle
+     quelle en tête de fiche ; plus les faits lisibles dans les fichiers
+     (durée, chapitres, nombre de médias).
+  3. APIs publiques pour les livres (Google Books, Open Library) :
+     titre, auteur, ISBN, éditeur, année, couverture — champs factuels
+     uniquement.
+  4. Saisie manuelle, pour les contenus créés par Gautier et pour
+     corriger ou compléter n'importe quelle fiche. Ces champs-là ne
+     sont jamais écrasés par un rescan.
 - requirements-dev.txt pour pytest.
 - Clé SSH GitHub à la place du token en clair dans ~/.git-credentials.
 - Watcher automatique — seulement après un scanner manuel fiable.
