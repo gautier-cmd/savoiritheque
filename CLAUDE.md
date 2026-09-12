@@ -159,20 +159,25 @@ position pour EPUB.
   grille. Pour les deux autres (les courses, sans page de présentation
   avec image) : à extraire autrement (première page PDF, pochette M4B,
   image de vidéo) ou à récupérer en ligne.
-- Métadonnées enrichies, quatre sources par ordre de priorité. La
-  source 2 (fichiers locaux) est faite pour la page de présentation —
-  voir "Application web" ci-dessus ; les trois autres restent à faire :
+- Métadonnées enrichies. Comportement voulu : le moissonnage web est
+  tenté en premier ; s'il ne trouve rien, on se rabat sur les sources
+  suivantes dans l'ordre ; si aucune source automatique n'aboutit,
+  l'appli doit donner le nom de l'item à Gautier et soit attendre qu'il
+  fournisse une URL (pour retenter le moissonnage sur cette page
+  précise), soit lui proposer une saisie manuelle. Ordre des sources :
   1. Moissonnage des pages de vente des plateformes commerciales
      (TUTO.com, Udemy, LinkedIn, Elephorm...).
-  2. Fichiers locaux — FAIT : présentation extraite et réaffichée avec
-     le gabarit de Savoirthèque (presentation.py). Restent les faits
-     déjà lisibles par le scanner (durée, chapitres, nombre de médias)
-     à afficher en tête de fiche.
+  2. Fichiers locaux — FAIT pour la page de présentation (extraite et
+     réaffichée avec le gabarit de Savoirthèque, voir presentation.py
+     et "Application web" ci-dessus). Restent les faits déjà lisibles
+     par le scanner (durée, chapitres, nombre de médias) à afficher en
+     tête de fiche.
   3. APIs publiques pour les livres (Google Books, Open Library) :
      titre, auteur, ISBN, éditeur, année, couverture — champs factuels
      uniquement.
-  4. Saisie manuelle, pour les contenus créés par Gautier et pour
-     corriger ou compléter n'importe quelle fiche. Ces champs-là ne
+  4. Saisie manuelle : soit en réponse à l'échec des sources
+     automatiques (voir comportement ci-dessus), soit à tout moment
+     pour corriger ou compléter une fiche existante. Ces champs-là ne
      sont jamais écrasés par un rescan.
 - requirements-dev.txt pour pytest.
 - Clé SSH GitHub à la place du token en clair dans ~/.git-credentials.
