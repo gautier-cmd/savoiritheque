@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ item['title'] }} - Savoirthèque</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: #2d2d2d;
+            padding: 20px 0;
+            margin-bottom: 30px;
+            border-bottom: 3px solid #007acc;
+        }
+
+        .header .container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .header a {
+            color: #999;
+            text-decoration: none;
+        }
+
+        .header h1 {
+            color: #e0e0e0;
+            font-size: 1.6em;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 0.75em;
+            text-transform: uppercase;
+            background: #007acc;
+            color: white;
+        }
+
+        .card {
+            background: #2d2d2d;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #007acc;
+        }
+
+        .card h3 {
+            margin-bottom: 12px;
+            color: #007acc;
+        }
+
+        .file-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #3d3d3d;
+        }
+
+        .file-row:last-child {
+            border-bottom: none;
+        }
+
+        .file-meta {
+            color: #999;
+            font-size: 0.85em;
+            white-space: nowrap;
+            margin-left: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <a href="{{ url_for('library_grid') }}">← Bibliothèque</a>
+            <h1>{{ item['title'] }}</h1>
+            <span class="badge">{{ item['item_type'] }}</span>
+        </div>
+    </div>
+
+    <div class="container">
+        {% for parent_path, media_list in chapters %}
+        <div class="card">
+            <h3>{{ parent_path if parent_path else 'Racine' }}</h3>
+            {% for media in media_list %}
+            <div class="file-row">
+                <span>{{ media['relative_path'].rsplit('/', 1)[-1] }}</span>
+                <span class="file-meta">{{ format_duration(media['duration_seconds']) }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+
+        {% if resources %}
+        <div class="card">
+            <h3>Ressources</h3>
+            {% for resource in resources %}
+            <div class="file-row">
+                <span>{{ resource['relative_path'].rsplit('/', 1)[-1] }}</span>
+                <span class="file-meta">{{ resource['resource_type'] }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>
