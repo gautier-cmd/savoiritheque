@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import re
+import shutil
 import sqlite3
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -17,11 +20,44 @@ from offlineu_core import (
     SUBTITLE_EXTENSIONS,
 )
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+
+PROBE_TIMEOUT_SECONDS = 60
+PROBE_COMMIT_EVERY = 50
 
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def natural_key(text: str) -> list:
+    """Cle de tri qui compare les nombres comme des nombres.
+
+    "10" se place ainsi apres "9", et non avant comme le ferait
+    un tri purement textuel.
+    """
+
+    return [
+        int(part) if part.isdigit() else part.lower()
+        for part in re.split(r"(\d+)", text)
+    ]
+
+
+def format_duration(seconds: float | None) -> str:
+    if not seconds:
+        return "—"
+
+    total = int(seconds)
+    heures, reste = divmod(total, 3600)
+    minutes, secondes = divmod(reste, 60)
+
+    if heures:
+        return f"{heures}h{minutes:02d}"
+
+    if minutes:
+        return f"{minutes}m{secondes:02d}"
+
+    return f"{secondes}s"
 
 
 def connect_database(db_path: Path) -> sqlite3.Connection:
@@ -62,9 +98,13 @@ def create_schema(conn: sqlite3.Connection) -> None:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             item_id INTEGER NOT NULL,
             relative_path TEXT NOT NULL,
+            parent_path TEXT NOT NULL DEFAULT '',
+            sort_order INTEGER NOT NULL DEFAULT 0,
             media_type TEXT NOT NULL,
             extension TEXT NOT NULL,
             size_bytes INTEGER NOT NULL,
+            duration_seconds REAL,
+            probed_at TEXT,
             created_at TEXT NOT NULL,
             UNIQUE(item_id, relative_path),
             FOREIGN KEY(item_id) REFERENCES items(id) ON DELETE CASCADE
@@ -74,6 +114,8 @@ def create_schema(conn: sqlite3.Connection) -> None:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             item_id INTEGER NOT NULL,
             relative_path TEXT NOT NULL,
+            parent_path TEXT NOT NULL DEFAULT '',
+            sort_order INTEGER NOT NULL DEFAULT 0,
             resource_type TEXT NOT NULL,
             extension TEXT NOT NULL,
             size_bytes INTEGER NOT NULL,
@@ -97,14 +139,6 @@ def create_schema(conn: sqlite3.Connection) -> None:
         """
     )
 
-    row = conn.execute("SELECT COUNT(*) AS n FROM schema_info").fetchone()
-
-    if row["n"] == 0:
-        conn.execute(
-            "INSERT INTO schema_info(version) VALUES (?)",
-            (SCHEMA_VERSION,),
-        )
-
     conn.execute(
         """
         INSERT OR IGNORE INTO users(
@@ -119,6 +153,60 @@ def create_schema(conn: sqlite3.Connection) -> None:
     )
 
     conn.commit()
+
+
+def column_names(conn: sqlite3.Connection, table: str) -> set[str]:
+    return {
+        row["name"]
+        for row in conn.execute(f"PRAGMA table_info({table})")
+    }
+
+
+def migrate_schema(conn: sqlite3.Connection) -> list[str]:
+    """Ajoute les colonnes manquantes a une base creee par une
+    version anterieure.
+
+    CREATE TABLE IF NOT EXISTS laisse intacte une table deja
+    presente : sans cette etape, une base existante garderait
+    l'ancien schema.
+    """
+
+    ajouts: list[str] = []
+
+    attendu = {
+        "media": [
+            ("parent_path", "TEXT NOT NULL DEFAULT ''"),
+            ("sort_order", "INTEGER NOT NULL DEFAULT 0"),
+            ("duration_seconds", "REAL"),
+            ("probed_at", "TEXT"),
+        ],
+        "resources": [
+            ("parent_path", "TEXT NOT NULL DEFAULT ''"),
+            ("sort_order", "INTEGER NOT NULL DEFAULT 0"),
+        ],
+    }
+
+    for table, colonnes in attendu.items():
+        presentes = column_names(conn, table)
+
+        for nom, definition in colonnes:
+            if nom in presentes:
+                continue
+
+            conn.execute(
+                f"ALTER TABLE {table} ADD COLUMN {nom} {definition}"
+            )
+            ajouts.append(f"{table}.{nom}")
+
+    conn.execute("DELETE FROM schema_info")
+    conn.execute(
+        "INSERT INTO schema_info(version) VALUES (?)",
+        (SCHEMA_VERSION,),
+    )
+
+    conn.commit()
+
+    return ajouts
 
 
 def create_scan_workspace(conn: sqlite3.Connection) -> None:
@@ -213,10 +301,20 @@ def classify_file(
     return None
 
 
+def parent_of(relative_path: str) -> str:
+    """Sous-dossier contenant le fichier, chaine vide a la racine."""
+
+    parent = Path(relative_path).parent.as_posix()
+
+    return "" if parent == "." else parent
+
+
 def upsert_media(
     conn: sqlite3.Connection,
     item_id: int,
     relative_path: str,
+    parent_path: str,
+    sort_order: int,
     media_type: str,
     extension: str,
     size_bytes: int,
@@ -226,6 +324,10 @@ def upsert_media(
 
     L'id stable est ce qui permet a progress.media_id de survivre
     a un rescan.
+
+    La duree est conservee tant que la taille du fichier ne bouge
+    pas. Si elle change, le fichier n'est plus le meme : la duree
+    memorisee devient fausse et repasse a NULL pour etre resondee.
     """
 
     conn.execute(
@@ -233,21 +335,37 @@ def upsert_media(
         INSERT INTO media(
             item_id,
             relative_path,
+            parent_path,
+            sort_order,
             media_type,
             extension,
             size_bytes,
             created_at
         )
-        VALUES (?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(item_id, relative_path)
         DO UPDATE SET
+            parent_path = excluded.parent_path,
+            sort_order = excluded.sort_order,
             media_type = excluded.media_type,
             extension = excluded.extension,
+            duration_seconds = CASE
+                WHEN media.size_bytes = excluded.size_bytes
+                THEN media.duration_seconds
+                ELSE NULL
+            END,
+            probed_at = CASE
+                WHEN media.size_bytes = excluded.size_bytes
+                THEN media.probed_at
+                ELSE NULL
+            END,
             size_bytes = excluded.size_bytes
         """,
         (
             item_id,
             relative_path,
+            parent_path,
+            sort_order,
             media_type,
             extension,
             size_bytes,
@@ -260,6 +378,8 @@ def upsert_resource(
     conn: sqlite3.Connection,
     item_id: int,
     relative_path: str,
+    parent_path: str,
+    sort_order: int,
     resource_type: str,
     extension: str,
     size_bytes: int,
@@ -271,14 +391,18 @@ def upsert_resource(
         INSERT INTO resources(
             item_id,
             relative_path,
+            parent_path,
+            sort_order,
             resource_type,
             extension,
             size_bytes,
             created_at
         )
-        VALUES (?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(item_id, relative_path)
         DO UPDATE SET
+            parent_path = excluded.parent_path,
+            sort_order = excluded.sort_order,
             resource_type = excluded.resource_type,
             extension = excluded.extension,
             size_bytes = excluded.size_bytes
@@ -286,6 +410,8 @@ def upsert_resource(
         (
             item_id,
             relative_path,
+            parent_path,
+            sort_order,
             resource_type,
             extension,
             size_bytes,
@@ -330,10 +456,16 @@ def scan_item(
     item_path: Path,
 ) -> None:
 
-    all_files = sorted(
+    all_files = [
         file
         for file in item_path.rglob("*")
         if file.is_file() and not file.name.startswith(".")
+    ]
+
+    all_files.sort(
+        key=lambda f: natural_key(
+            f.relative_to(item_path).as_posix()
+        )
     )
 
     item_type = classify_item(all_files)
@@ -375,6 +507,9 @@ def scan_item(
 
     conn.execute("DELETE FROM seen_paths")
 
+    rang_media = 0
+    rang_resource = 0
+
     for file_path in all_files:
         classification = classify_file(file_path, item_type)
 
@@ -384,6 +519,7 @@ def scan_item(
         category, subtype = classification
 
         relative_path = file_path.relative_to(item_path).as_posix()
+        parent_path = parent_of(relative_path)
         ext = file_path.suffix.lower()
         size = file_path.stat().st_size
 
@@ -393,10 +529,13 @@ def scan_item(
         )
 
         if category == "media":
+            rang_media += 1
             upsert_media(
                 conn,
                 item_id,
                 relative_path,
+                parent_path,
+                rang_media,
                 subtype,
                 ext,
                 size,
@@ -404,10 +543,13 @@ def scan_item(
             )
 
         else:
+            rang_resource += 1
             upsert_resource(
                 conn,
                 item_id,
                 relative_path,
+                parent_path,
+                rang_resource,
                 subtype,
                 ext,
                 size,
@@ -417,7 +559,111 @@ def scan_item(
     delete_vanished_rows(conn, item_id)
 
 
-def scan_library(library_root: Path, db_path: Path) -> None:
+def probe_duration(file_path: Path) -> float | None:
+    """Duree d'un fichier en secondes, lue par ffprobe.
+
+    ffprobe fait partie de ffmpeg. Il lit les en-tetes du fichier
+    sans le decoder ni le modifier. Renvoie None si l'outil est
+    absent, si le fichier n'est pas lisible ou s'il ne declare
+    aucune duree.
+    """
+
+    try:
+        resultat = subprocess.run(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+                str(file_path),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=PROBE_TIMEOUT_SECONDS,
+        )
+
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+
+    try:
+        duree = float(resultat.stdout.strip())
+
+    except ValueError:
+        return None
+
+    return duree if duree > 0 else None
+
+
+def probe_missing_durations(
+    conn: sqlite3.Connection,
+    library_root: Path,
+    verbose: bool = True,
+) -> tuple[int, int]:
+    """Sonde les medias dont la duree est inconnue.
+
+    Renvoie (nombre sonde avec succes, nombre total examine).
+    """
+
+    if shutil.which("ffprobe") is None:
+        raise SystemExit(
+            "ffprobe est introuvable. Installer ffmpeg, ou relancer "
+            "sans --probe."
+        )
+
+    rows = conn.execute(
+        """
+        SELECT
+            m.id,
+            i.library_path,
+            m.relative_path
+        FROM media m
+        JOIN items i ON i.id = m.item_id
+        WHERE m.duration_seconds IS NULL
+          AND m.media_type IN ('video', 'audio')
+        ORDER BY i.library_path, m.sort_order
+        """
+    ).fetchall()
+
+    total = len(rows)
+    reussites = 0
+
+    for index, row in enumerate(rows, start=1):
+        file_path = library_root / row["library_path"] / row["relative_path"]
+
+        duree = probe_duration(file_path)
+
+        if duree is not None:
+            reussites += 1
+
+        conn.execute(
+            """
+            UPDATE media
+            SET duration_seconds = ?, probed_at = ?
+            WHERE id = ?
+            """,
+            (duree, now_iso(), row["id"]),
+        )
+
+        if index % PROBE_COMMIT_EVERY == 0:
+            conn.commit()
+
+            if verbose:
+                print(f"  sondé {index}/{total}…")
+
+    conn.commit()
+
+    return reussites, total
+
+
+def scan_library(
+    library_root: Path,
+    db_path: Path,
+    probe: bool = False,
+    verbose: bool = True,
+) -> None:
     library_root = library_root.resolve()
 
     if not library_root.is_dir():
@@ -429,6 +675,14 @@ def scan_library(library_root: Path, db_path: Path) -> None:
 
     try:
         create_schema(conn)
+
+        ajouts = migrate_schema(conn)
+
+        if ajouts and verbose:
+            print("Migration du schéma, colonnes ajoutées :")
+            for ajout in ajouts:
+                print(f"  {ajout}")
+
         create_scan_workspace(conn)
 
         current_items = {
@@ -453,13 +707,27 @@ def scan_library(library_root: Path, db_path: Path) -> None:
             )
 
         for item_path in sorted(
-            path
-            for path in library_root.iterdir()
-            if path.is_dir() and not path.name.startswith(".")
+            (
+                path
+                for path in library_root.iterdir()
+                if path.is_dir() and not path.name.startswith(".")
+            ),
+            key=lambda p: natural_key(p.name),
         ):
             scan_item(conn, library_root, item_path)
 
         conn.commit()
+
+        if probe:
+            if verbose:
+                print("Analyse des durées par ffprobe…")
+
+            reussites, total = probe_missing_durations(
+                conn, library_root, verbose
+            )
+
+            if verbose:
+                print(f"Durées lues : {reussites}/{total}")
 
     finally:
         conn.close()
@@ -472,17 +740,28 @@ def print_summary(db_path: Path) -> None:
         print()
         print("=== INDEX SAVOIRTHEQUE ===")
 
+        # Sous-requetes plutot que jointures : deux LEFT JOIN
+        # simultanes multiplieraient les lignes et fausseraient
+        # la somme des durees.
         rows = conn.execute(
             """
             SELECT
+                i.id,
                 i.title,
                 i.item_type,
-                COUNT(DISTINCT m.id) AS media_count,
-                COUNT(DISTINCT r.id) AS resource_count
+                (SELECT COUNT(*) FROM media m
+                 WHERE m.item_id = i.id) AS media_count,
+                (SELECT COUNT(*) FROM resources r
+                 WHERE r.item_id = i.id) AS resource_count,
+                (SELECT COUNT(DISTINCT parent_path) FROM media m
+                 WHERE m.item_id = i.id
+                   AND m.parent_path <> '') AS chapter_count,
+                (SELECT SUM(duration_seconds) FROM media m
+                 WHERE m.item_id = i.id) AS total_duration,
+                (SELECT COUNT(*) FROM media m
+                 WHERE m.item_id = i.id
+                   AND m.duration_seconds IS NULL) AS missing_duration
             FROM items i
-            LEFT JOIN media m ON m.item_id = i.id
-            LEFT JOIN resources r ON r.item_id = i.id
-            GROUP BY i.id
             ORDER BY i.title
             """
         ).fetchall()
@@ -492,28 +771,34 @@ def print_summary(db_path: Path) -> None:
                 f"{row['title']}\n"
                 f"  type       : {row['item_type']}\n"
                 f"  médias     : {row['media_count']}\n"
-                f"  ressources : {row['resource_count']}"
+                f"  ressources : {row['resource_count']}\n"
+                f"  chapitres  : {row['chapter_count']}\n"
+                f"  durée      : {format_duration(row['total_duration'])}"
+                f"   (sans durée : {row['missing_duration']})"
             )
 
         print()
-        print("=== DETAIL DES MEDIAS ===")
+        print("=== CHAPITRES ===")
 
         rows = conn.execute(
             """
             SELECT
                 i.title,
-                m.media_type,
-                m.relative_path
+                m.parent_path,
+                COUNT(*) AS n,
+                SUM(m.duration_seconds) AS duree
             FROM media m
             JOIN items i ON i.id = m.item_id
-            ORDER BY i.title, m.relative_path
+            GROUP BY i.id, m.parent_path
+            ORDER BY i.title, MIN(m.sort_order)
             """
         ).fetchall()
 
         for row in rows:
+            libelle = row["parent_path"] or "(racine)"
             print(
-                f"[{row['media_type']:5}] "
-                f"{row['title']} :: {row['relative_path']}"
+                f"{row['title']} :: {libelle} — "
+                f"{row['n']} média(s), {format_duration(row['duree'])}"
             )
 
     finally:
@@ -535,9 +820,38 @@ def main() -> None:
         type=Path,
     )
 
+    parser.add_argument(
+        "--probe",
+        action="store_true",
+        help="lire la durée des vidéos et audios avec ffprobe",
+    )
+
+    parser.add_argument(
+        "--reprobe",
+        action="store_true",
+        help="oublier les durées connues et tout resonder",
+    )
+
     args = parser.parse_args()
 
-    scan_library(args.library, args.database)
+    if args.reprobe and args.database.exists():
+        conn = connect_database(args.database)
+
+        try:
+            conn.execute(
+                "UPDATE media SET duration_seconds = NULL, probed_at = NULL"
+            )
+            conn.commit()
+
+        finally:
+            conn.close()
+
+    scan_library(
+        args.library,
+        args.database,
+        probe=args.probe or args.reprobe,
+    )
+
     print_summary(args.database)
 
 
