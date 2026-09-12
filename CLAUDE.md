@@ -45,9 +45,18 @@ mais n'écrit pas de code et ne corrige pas une commande lui-même.
 
     offlineu_core.py    application OfflineU d'origine, 1003 lignes, INTACTE
     library_index.py    scanner SQLite de Savoirthèque
-    tests/test_library_index.py   17 tests pytest
-    templates/          templates OfflineU (course_dashboard, lesson_view,
-                        select_course) — réutilisables pour le CSS seulement
+    savoiritheque.py    application web de consultation (Flask) : grille,
+                        fiche d'item, lecteur vidéo
+    presentation.py     extrait couverture/fiche technique/texte des pages
+                        "000 - Presentation....html" (BeautifulSoup) pour
+                        les réafficher avec le gabarit de Savoirthèque
+                        plutôt que telles quelles
+    tests/              test_library_index.py, test_savoiritheque.py,
+                        test_presentation.py — 33 tests pytest
+    templates/          course_dashboard, lesson_view, select_course
+                        (OfflineU, CSS repris comme point de départ) +
+                        library_grid, item_detail, video_player
+                        (Savoirthèque)
 
 ### Modèle de données
 
@@ -98,6 +107,25 @@ par tri naturel (10 après 9).
     Motion Design - la formation complete  course, 258 médias, 27 chapitres, 55h10
     S organiser pour reussir (David Allen) audiobook, 1 M4B, 3h05
 
+### Application web (savoiritheque.py)
+
+    /                       grille des items (type, durée, nb de médias)
+    /item/<id>              fiche : présentation extraite (si le fichier
+                            existe), chapitres/médias, ressources
+    /watch/<media_id>       lecteur vidéo : playlist par chapitre,
+                            précédent/suivant, enchaînement automatique
+    /media/<media_id>/file  sert le fichier vidéo (Range HTTP géré par
+                            Flask, permet d'avancer/reculer)
+
+Chaque page de présentation a sa propre mise en page HTML (tableau, ou
+lignes en div avec couverture) selon l'item : presentation.py ne dépend
+d'aucune des deux en particulier, il repère les libellés de fiche
+technique par leur classe CSS commune ("k") et les blocs de texte par
+leur position dans le corps de page.
+
+Pas encore fait : sauvegarde de la position de lecture, lecteur
+audio/PDF.
+
 ## Objectif suivant
 
 Une application web locale mono-utilisateur lisant SQLite :
@@ -109,7 +137,7 @@ occurrences de « lesson » et l'état global current_course sont
 incompatibles avec le modèle. Le CSS des templates existants est
 réutilisable comme point de départ.
 
-Lecteurs prévus, dans cet ordre : vidéo, audio/M4B avec chapitres,
+Lecteurs prévus, dans cet ordre : vidéo (fait), audio/M4B avec chapitres,
 PDF (PDF.js). EPUB plus tard.
 
 Progression selon le type : secondes pour vidéo et audio, page pour PDF,
@@ -124,15 +152,22 @@ position pour EPUB.
 - Chapitres internes des M4B (ffprobe -show_chapters), distincts des
   chapitres par sous-dossier.
 - Nombre de pages des PDF.
-- Couvertures : aucun des quatre cas n'a de fichier image. À extraire
-  (première page PDF, pochette M4B, image de vidéo) ou à récupérer en ligne.
-- Métadonnées enrichies, quatre sources par ordre de priorité :
+- Couvertures dans la grille : aucun fichier image dédié dans les
+  quatre cas de test, mais deux d'entre eux (les books) ont déjà une
+  couverture intégrée dans leur page de présentation, que presentation.py
+  extrait déjà pour la fiche — reste à la réutiliser aussi dans la
+  grille. Pour les deux autres (les courses, sans page de présentation
+  avec image) : à extraire autrement (première page PDF, pochette M4B,
+  image de vidéo) ou à récupérer en ligne.
+- Métadonnées enrichies, quatre sources par ordre de priorité. La
+  source 2 (fichiers locaux) est faite pour la page de présentation —
+  voir "Application web" ci-dessus ; les trois autres restent à faire :
   1. Moissonnage des pages de vente des plateformes commerciales
      (TUTO.com, Udemy, LinkedIn, Elephorm...).
-  2. Fichiers locaux : pour les formations achetées, la page
-     000 - Presentation.html livrée avec le contenu s'affiche telle
-     quelle en tête de fiche ; plus les faits lisibles dans les fichiers
-     (durée, chapitres, nombre de médias).
+  2. Fichiers locaux — FAIT : présentation extraite et réaffichée avec
+     le gabarit de Savoirthèque (presentation.py). Restent les faits
+     déjà lisibles par le scanner (durée, chapitres, nombre de médias)
+     à afficher en tête de fiche.
   3. APIs publiques pour les livres (Google Books, Open Library) :
      titre, auteur, ISBN, éditeur, année, couverture — champs factuels
      uniquement.

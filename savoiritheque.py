@@ -15,6 +15,7 @@ from pathlib import Path
 from flask import Flask, abort, render_template, send_file
 
 from library_index import connect_database, format_duration
+from presentation import parse_presentation
 
 
 def fetch_video_media(conn, media_id: int):
@@ -54,6 +55,27 @@ def fetch_video_playlist(conn, item_id: int):
         """,
         (item_id,),
     ).fetchall()
+
+
+def read_presentation(library_root: Path, library_path: str, relative_path: str):
+    """Lit et analyse la page de présentation HTML d'un item.
+
+    None si le fichier a disparu du disque depuis le scan : une fiche
+    ne doit pas planter pour autant, elle s'affiche juste sans
+    présentation.
+    """
+
+    file_path = (library_root / library_path / relative_path).resolve()
+
+    if library_root not in file_path.parents:
+        return None
+
+    try:
+        html_text = file_path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+
+    return parse_presentation(html_text)
 
 
 def group_by_parent(rows):
@@ -115,7 +137,10 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
 
         try:
             item = conn.execute(
-                "SELECT id, title, item_type FROM items WHERE id = ?",
+                """
+                SELECT id, title, item_type, library_path
+                FROM items WHERE id = ?
+                """,
                 (item_id,),
             ).fetchone()
 
@@ -150,13 +175,21 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
 
         chapters = group_by_parent(media_rows)
 
-        presentation = next(
+        presentation_resource = next(
             (r for r in resources if r["resource_type"] == "presentation"),
             None,
         )
         resources = [
             r for r in resources if r["resource_type"] != "presentation"
         ]
+
+        presentation = None
+        if presentation_resource is not None:
+            presentation = read_presentation(
+                app.config["LIBRARY_ROOT"],
+                item["library_path"],
+                presentation_resource["relative_path"],
+            )
 
         return render_template(
             "item_detail.html",
@@ -214,40 +247,6 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
         library_root = app.config["LIBRARY_ROOT"]
         file_path = (
             library_root / media["library_path"] / media["relative_path"]
-        ).resolve()
-
-        if library_root not in file_path.parents or not file_path.is_file():
-            abort(404)
-
-        mimetype, _ = mimetypes.guess_type(file_path.name)
-
-        return send_file(file_path, mimetype=mimetype)
-
-    @app.route("/resource/<int:resource_id>/file")
-    def resource_file(resource_id: int):
-        conn = connect_database(app.config["DB_PATH"])
-
-        try:
-            resource = conn.execute(
-                """
-                SELECT resources.relative_path, items.library_path
-                FROM resources
-                JOIN items ON items.id = resources.item_id
-                WHERE resources.id = ?
-                """,
-                (resource_id,),
-            ).fetchone()
-        finally:
-            conn.close()
-
-        if resource is None:
-            abort(404)
-
-        library_root = app.config["LIBRARY_ROOT"]
-        file_path = (
-            library_root
-            / resource["library_path"]
-            / resource["relative_path"]
         ).resolve()
 
         if library_root not in file_path.parents or not file_path.is_file():

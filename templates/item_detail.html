@@ -96,12 +96,65 @@
             margin-left: 15px;
         }
 
-        .presentation-frame {
-            width: 100%;
-            height: 60vh;
-            border: 0;
-            border-radius: 8px;
-            display: block;
+        .presentation-top {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+            margin-bottom: 15px;
+        }
+
+        .presentation-top .cover-image {
+            width: 140px;
+            flex-shrink: 0;
+            border-radius: 6px;
+        }
+
+        .facts {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .fact-row {
+            display: flex;
+            gap: 10px;
+            margin: 4px 0;
+            font-size: 0.9em;
+        }
+
+        .fact-row dt {
+            color: #999;
+            min-width: 9em;
+            flex-shrink: 0;
+        }
+
+        .fact-row dd a {
+            color: #4aa3ff;
+        }
+
+        .presentation-heading {
+            color: #007acc;
+            margin: 16px 0 6px;
+            font-size: 1em;
+        }
+
+        .presentation-text {
+            margin: 6px 0;
+            font-size: 0.95em;
+        }
+
+        .presentation-list {
+            margin: 6px 0;
+            padding-left: 1.3em;
+            font-size: 0.95em;
+        }
+
+        .presentation-note {
+            border-left: 3px solid #007acc;
+            background: #1e2a38;
+            padding: 10px 14px;
+            margin: 10px 0;
+            font-size: 0.88em;
+            border-radius: 0 4px 4px 0;
         }
     </style>
 </head>
@@ -117,8 +170,39 @@
     <div class="container">
         {% if presentation %}
         <div class="card">
-            <iframe class="presentation-frame"
-                    src="{{ url_for('resource_file', resource_id=presentation['id']) }}"></iframe>
+            {% if presentation.cover_data_uri or presentation.facts %}
+            <div class="presentation-top">
+                {% if presentation.cover_data_uri %}
+                <img class="cover-image" src="{{ presentation.cover_data_uri }}" alt="Couverture">
+                {% endif %}
+                {% if presentation.facts %}
+                <dl class="facts">
+                    {% for fact in presentation.facts %}
+                    <div class="fact-row">
+                        <dt>{{ fact.label }}</dt>
+                        <dd>
+                            {% for run in fact.runs %}{% if run.href %}<a href="{{ run.href }}" target="_blank" rel="noopener">{{ run.text }}</a>{% else %}{{ run.text }}{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}
+                        </dd>
+                    </div>
+                    {% endfor %}
+                </dl>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            {% for block in presentation.blocks %}
+                {% if block.type == 'heading' %}
+                <h4 class="presentation-heading">{{ block.text }}</h4>
+                {% elif block.type == 'paragraph' %}
+                <p class="presentation-text">{{ block.text }}</p>
+                {% elif block.type == 'list' %}
+                <ul class="presentation-list">
+                    {% for list_item in block['items'] %}<li>{{ list_item }}</li>{% endfor %}
+                </ul>
+                {% elif block.type == 'note' %}
+                <div class="presentation-note">{{ block.text }}</div>
+                {% endif %}
+            {% endfor %}
         </div>
         {% endif %}
 

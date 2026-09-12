@@ -32,7 +32,16 @@ def library(tmp_path: Path) -> Path:
     make_file(book / "Exercices.zip")
     make_file(
         book / "000 - presentation.html",
-        b"<html><body>Bonjour Adobe</body></html>",
+        """
+        <html><body>
+        <h1>Adobe Illustrator CS6</h1>
+        <table>
+        <tr><td class="k">Auteur</td><td>Adobe Press</td></tr>
+        </table>
+        <h2>Description</h2>
+        <p>Bonjour Adobe.</p>
+        </body></html>
+        """.encode(),
     )
 
     deep = root / "Motion Design - la formation complete (TUTO.com)"
@@ -84,23 +93,6 @@ def media_id_by_relative_path(client, relative_path: str) -> int:
     try:
         row = conn.execute(
             "SELECT id FROM media WHERE relative_path = ?", (relative_path,)
-        ).fetchone()
-    finally:
-        conn.close()
-
-    return row[0]
-
-
-def resource_id_by_relative_path(client, relative_path: str) -> int:
-    import sqlite3
-
-    db_path = client.application.config["DB_PATH"]
-    conn = sqlite3.connect(db_path)
-
-    try:
-        row = conn.execute(
-            "SELECT id FROM resources WHERE relative_path = ?",
-            (relative_path,),
         ).fetchone()
     finally:
         conn.close()
@@ -218,34 +210,20 @@ def test_media_non_video_renvoie_404_sur_lecteur_et_fichier(client) -> None:
     assert client.get(f"/media/{media_id}/file").status_code == 404
 
 
-def test_fiche_affiche_la_presentation_en_iframe(client) -> None:
+def test_fiche_affiche_la_presentation_avec_nos_propres_moyens(client) -> None:
     item_id = item_id_by_title(client, "Adobe Illustrator CS6 (Adobe Press)")
 
     response = client.get(f"/item/{item_id}")
     data = response.data.decode()
 
     assert response.status_code == 200
-    assert "<iframe" in data
+    # Rendu par notre propre gabarit, pas la page fournisseur telle quelle.
+    assert "<iframe" not in data
+    assert "Adobe Press" in data  # fait extrait de la fiche technique
+    assert "Bonjour Adobe." in data  # paragraphe extrait
     # La presentation ne doit pas apparaitre en double dans la liste
     # de ressources generique.
-    assert "presentation.html" not in data
-
-
-def test_route_resource_file_sert_le_contenu(client) -> None:
-    resource_id = resource_id_by_relative_path(
-        client, "000 - presentation.html"
-    )
-
-    response = client.get(f"/resource/{resource_id}/file")
-
-    assert response.status_code == 200
-    assert b"Bonjour Adobe" in response.data
-
-
-def test_route_resource_file_inconnue_renvoie_404(client) -> None:
-    response = client.get("/resource/999/file")
-
-    assert response.status_code == 404
+    assert "000 - presentation.html" not in data
 
 
 def test_lecteur_video_affiche_precedent_et_suivant(client) -> None:
