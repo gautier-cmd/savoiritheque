@@ -19,12 +19,97 @@ from flask import Flask, render_template, request, jsonify, send_file, redirect,
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-change-in-production'
 
-# Supported file types
-VIDEO_EXTENSIONS = {'.mp4', '.mkv', '.avi', '.mov', '.webm', '.m4v', '.flv', '.wmv'}
-AUDIO_EXTENSIONS = {'.mp3', '.wav', '.m4a', '.aac', '.ogg', '.flac'}
-SUBTITLE_EXTENSIONS = {'.srt', '.vtt', '.ass', '.sub', '.sbv'}
-TEXT_EXTENSIONS = {'.txt', '.md', '.html', '.htm', '.pdf', '.docx', '.doc', '.rtf'}
-QUIZ_INDICATORS = {'quiz', 'exam', 'test', 'assessment', 'exercise', 'assignment', 'homework'}
+# Supported / recognized file types
+#
+# Recognition does not imply direct browser playback.
+# Some formats will later require a dedicated reader, transcoding,
+# conversion or download handling.
+
+VIDEO_EXTENSIONS = {
+    '.mp4', '.mkv', '.avi', '.mov', '.webm', '.m4v',
+    '.flv', '.wmv', '.mpg', '.mpeg', '.mpe',
+    '.ts', '.mts', '.m2ts', '.vob', '.ogv',
+    '.3gp', '.3g2', '.asf', '.rm', '.rmvb', '.divx'
+}
+
+AUDIO_EXTENSIONS = {
+    '.mp3', '.wav', '.m4a', '.m4b', '.aac',
+    '.ogg', '.oga', '.opus', '.flac', '.wma',
+    '.aiff', '.aif', '.alac', '.ape', '.amr',
+    '.ac3', '.dts', '.mka'
+}
+
+BOOK_EXTENSIONS = {
+    '.pdf', '.epub',
+    '.mobi', '.azw', '.azw3',
+    '.fb2',
+    '.djvu', '.djv',
+    '.cbz', '.cbr', '.cb7', '.cbt',
+    '.chm',
+    '.xps', '.oxps'
+}
+
+DOCUMENT_EXTENSIONS = {
+    '.txt', '.md', '.markdown',
+    '.html', '.htm',
+    '.docx', '.doc',
+    '.odt', '.rtf',
+    '.tex', '.rst'
+}
+
+SUBTITLE_EXTENSIONS = {
+    '.srt', '.vtt',
+    '.ass', '.ssa',
+    '.sub', '.sbv',
+    '.ttml', '.dfxp'
+}
+
+IMAGE_EXTENSIONS = {
+    '.jpg', '.jpeg', '.png', '.webp',
+    '.gif', '.bmp',
+    '.tif', '.tiff',
+    '.avif', '.heic'
+}
+
+RESOURCE_EXTENSIONS = {
+    # Archives
+    '.zip', '.7z', '.rar', '.tar', '.gz', '.bz2', '.xz',
+
+    # Spreadsheets / presentations
+    '.xls', '.xlsx', '.xlsm', '.ods',
+    '.ppt', '.pptx', '.odp',
+
+    # Structured data
+    '.csv', '.tsv',
+    '.json', '.xml',
+    '.yaml', '.yml',
+
+    # Source code / notebooks
+    '.ipynb',
+    '.py', '.js', '.jsx', '.tsx',
+    '.java', '.kt',
+    '.c', '.cc', '.cpp', '.h', '.hpp',
+    '.cs', '.go', '.rs',
+    '.php', '.rb', '.sh', '.ps1',
+    '.sql',
+
+    # Miscellaneous learning resources
+    '.svg'
+}
+
+# Files that can represent the primary content of a library item.
+CONTENT_EXTENSIONS = (
+    VIDEO_EXTENSIONS
+    | AUDIO_EXTENSIONS
+    | BOOK_EXTENSIONS
+    | DOCUMENT_EXTENSIONS
+)
+
+QUIZ_INDICATORS = {
+    'quiz', 'exam', 'test',
+    'assessment', 'exercise',
+    'assignment', 'homework'
+}
 
 
 @dataclass
@@ -179,12 +264,18 @@ class DynamicCourseParser:
         elif ext in SUBTITLE_EXTENSIONS:
             subtitle_file = relative_path
             return None  # Don't create lessons for subtitle files alone
-        elif ext in TEXT_EXTENSIONS:
+        elif ext in BOOK_EXTENSIONS:
+            # Temporary representation until dedicated book readers are added.
+            # In particular, PDFs must no longer be treated as plain text.
             text_files.append(relative_path)
+            lesson_type = 'book'
+        elif ext in DOCUMENT_EXTENSIONS:
+            text_files.append(relative_path)
+            lesson_type = 'text'
             if any(indicator in filename for indicator in QUIZ_INDICATORS):
                 lesson_type = 'quiz'
         else:
-            # Skip unsupported file types
+            # Resources and unsupported files are not standalone lessons yet.
             return None
 
         # Clean up lesson name for display
@@ -386,7 +477,7 @@ def browse_directories():
                     try:
                         # Check if this looks like a course directory
                         media_count = len([f for f in item.rglob('*')
-                                           if f.suffix.lower() in VIDEO_EXTENSIONS | AUDIO_EXTENSIONS])
+                                           if f.suffix.lower() in CONTENT_EXTENSIONS])
 
                         directories.append({
                             'name': item.name,
