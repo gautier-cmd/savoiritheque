@@ -108,3 +108,42 @@ def test_fiche_item_inconnu_renvoie_404(client) -> None:
     response = client.get("/item/999")
 
     assert response.status_code == 404
+
+
+def test_chapitre_racine_non_consecutif_reste_un_seul_groupe(
+    tmp_path: Path, db: Path
+) -> None:
+    """Des médias à la racine avant et après un sous-dossier ne doivent
+    former qu'un seul groupe "Racine", pas deux.
+
+    Les noms sont choisis pour que le tri naturel place les deux
+    fichiers de racine de part et d'autre du sous-dossier : media_rows
+    n'est alors plus consécutif par parent_path, ce que groupby()
+    traiterait à tort comme deux chapitres "" distincts.
+    """
+
+    root = tmp_path / "library"
+    item = root / "Item entrelace"
+
+    make_file(item / "1 - Root A.mp4")
+    make_file(item / "2 - Chapitre" / "1 - Video B.mp4")
+    make_file(item / "3 - Root C.mp4")
+
+    scan_library(root, db, verbose=False)
+
+    app = create_app(root, db)
+    app.config["TESTING"] = True
+
+    with app.test_client() as test_client:
+        item_id = item_id_by_title(test_client, "Item entrelace")
+        response = test_client.get(f"/item/{item_id}")
+        data = response.data.decode()
+
+    assert response.status_code == 200
+    # Un seul groupe "Racine", pas un par plage consecutive de fichiers.
+    assert data.count(">Racine<") == 1
+    assert data.count("<h3>") == 2
+    # A l'interieur du groupe, l'ordre sort_order des deux fichiers de
+    # racine est respecte malgre le sous-dossier intercale entre eux.
+    assert data.index("Root A") < data.index("Root C")
+    assert "Video B" in data

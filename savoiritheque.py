@@ -9,7 +9,6 @@ viennent dans des tranches suivantes.
 from __future__ import annotations
 
 import argparse
-import itertools
 from pathlib import Path
 
 from flask import Flask, abort, render_template
@@ -94,12 +93,11 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
         finally:
             conn.close()
 
-        chapters = [
-            (parent_path, list(rows))
-            for parent_path, rows in itertools.groupby(
-                media_rows, key=lambda row: row["parent_path"]
-            )
-        ]
+        chapters_by_parent: dict[str, list] = {}
+        for row in media_rows:
+            chapters_by_parent.setdefault(row["parent_path"], []).append(row)
+
+        chapters = list(chapters_by_parent.items())
 
         return render_template(
             "item_detail.html",
