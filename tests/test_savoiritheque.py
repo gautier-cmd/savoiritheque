@@ -72,6 +72,22 @@ def item_id_by_title(client, title: str) -> int:
     return row[0]
 
 
+def media_id_by_relative_path(client, relative_path: str) -> int:
+    import sqlite3
+
+    db_path = client.application.config["DB_PATH"]
+    conn = sqlite3.connect(db_path)
+
+    try:
+        row = conn.execute(
+            "SELECT id FROM media WHERE relative_path = ?", (relative_path,)
+        ).fetchone()
+    finally:
+        conn.close()
+
+    return row[0]
+
+
 def test_grille_liste_les_items(client) -> None:
     response = client.get("/")
 
@@ -147,3 +163,36 @@ def test_chapitre_racine_non_consecutif_reste_un_seul_groupe(
     # racine est respecte malgre le sous-dossier intercale entre eux.
     assert data.index("Root A") < data.index("Root C")
     assert "Video B" in data
+
+
+def test_page_lecteur_video_affiche_le_lecteur(client) -> None:
+    media_id = media_id_by_relative_path(
+        client, "01 - Bases/001 - Interface.mp4"
+    )
+
+    response = client.get(f"/watch/{media_id}")
+
+    assert response.status_code == 200
+    assert b"<video" in response.data
+
+
+def test_fichier_video_supporte_les_requetes_range(client) -> None:
+    media_id = media_id_by_relative_path(
+        client, "01 - Bases/001 - Interface.mp4"
+    )
+
+    response = client.get(
+        f"/media/{media_id}/file", headers={"Range": "bytes=0-0"}
+    )
+
+    assert response.status_code == 206
+    assert response.headers["Content-Type"] == "video/mp4"
+
+
+def test_media_non_video_renvoie_404_sur_lecteur_et_fichier(client) -> None:
+    media_id = media_id_by_relative_path(
+        client, "920 - Adobe Illustrator CS6 - Adobe Press.pdf"
+    )
+
+    assert client.get(f"/watch/{media_id}").status_code == 404
+    assert client.get(f"/media/{media_id}/file").status_code == 404

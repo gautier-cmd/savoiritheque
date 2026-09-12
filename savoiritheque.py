@@ -9,16 +9,39 @@ viennent dans des tranches suivantes.
 from __future__ import annotations
 
 import argparse
+import mimetypes
 from pathlib import Path
 
-from flask import Flask, abort, render_template
+from flask import Flask, abort, render_template, send_file
 
 from library_index import connect_database, format_duration
 
 
+def fetch_video_media(conn, media_id: int):
+    """Media de type vidéo avec le chemin de bibliothèque de son item.
+
+    None si l'id n'existe pas ou si ce n'est pas une vidéo : cette
+    fonction sert de garde commune aux deux routes vidéo.
+    """
+
+    return conn.execute(
+        """
+        SELECT
+            media.id,
+            media.relative_path,
+            media.extension,
+            items.library_path
+        FROM media
+        JOIN items ON items.id = media.item_id
+        WHERE media.id = ? AND media.media_type = 'video'
+        """,
+        (media_id,),
+    ).fetchone()
+
+
 def create_app(library_root: Path, db_path: Path) -> Flask:
     app = Flask(__name__)
-    app.config["LIBRARY_ROOT"] = library_root
+    app.config["LIBRARY_ROOT"] = library_root.resolve()
     app.config["DB_PATH"] = db_path
 
     @app.route("/")
@@ -107,6 +130,44 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
             format_duration=format_duration,
         )
 
+    @app.route("/watch/<int:media_id>")
+    def watch_video(media_id: int):
+        conn = connect_database(app.config["DB_PATH"])
+
+        try:
+            media = fetch_video_media(conn, media_id)
+        finally:
+            conn.close()
+
+        if media is None:
+            abort(404)
+
+        return render_template("video_player.html", media=media)
+
+    @app.route("/media/<int:media_id>/file")
+    def media_file(media_id: int):
+        conn = connect_database(app.config["DB_PATH"])
+
+        try:
+            media = fetch_video_media(conn, media_id)
+        finally:
+            conn.close()
+
+        if media is None:
+            abort(404)
+
+        library_root = app.config["LIBRARY_ROOT"]
+        file_path = (
+            library_root / media["library_path"] / media["relative_path"]
+        ).resolve()
+
+        if library_root not in file_path.parents or not file_path.is_file():
+            abort(404)
+
+        mimetype, _ = mimetypes.guess_type(file_path.name)
+
+        return send_file(file_path, mimetype=mimetype)
+
     return app
 
 
@@ -120,7 +181,7 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    app = create_app(args.library.resolve(), args.database)
+    app = create_app(args.library, args.database)
     app.run(host=args.host, port=args.port, debug=False)
 
 

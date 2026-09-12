@@ -81,6 +81,14 @@
             border-bottom: none;
         }
 
+        .file-row a {
+            color: #e0e0e0;
+        }
+
+        .file-row a:hover {
+            color: #007acc;
+        }
+
         .file-meta {
             color: #999;
             font-size: 0.85em;
@@ -104,7 +112,11 @@
             <h3>{{ parent_path if parent_path else 'Racine' }}</h3>
             {% for media in media_list %}
             <div class="file-row">
+                {% if media['media_type'] == 'video' %}
+                <a href="{{ url_for('watch_video', media_id=media['id']) }}">{{ media['relative_path'].rsplit('/', 1)[-1] }}</a>
+                {% else %}
                 <span>{{ media['relative_path'].rsplit('/', 1)[-1] }}</span>
+                {% endif %}
                 <span class="file-meta">{{ format_duration(media['duration_seconds']) }}</span>
             </div>
             {% endfor %}
