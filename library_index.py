@@ -20,7 +20,7 @@ from offlineu_core import (
     SUBTITLE_EXTENSIONS,
 )
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 PROBE_TIMEOUT_SECONDS = 60
 PROBE_COMMIT_EVERY = 50
@@ -135,6 +135,31 @@ def create_schema(conn: sqlite3.Connection) -> None:
             UNIQUE(user_id, media_id),
             FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
             FOREIGN KEY(media_id) REFERENCES media(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS book_search (
+            item_id INTEGER PRIMARY KEY,
+            query TEXT,
+            searched_at TEXT,
+            FOREIGN KEY(item_id) REFERENCES items(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS book_candidates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            item_id INTEGER NOT NULL,
+            source TEXT NOT NULL,
+            source_id TEXT NOT NULL,
+            title TEXT,
+            authors TEXT,
+            publisher TEXT,
+            published_year TEXT,
+            isbn TEXT,
+            cover_url TEXT,
+            decision TEXT NOT NULL DEFAULT 'proposed',
+            found_at TEXT NOT NULL,
+            decided_at TEXT,
+            UNIQUE(item_id, source, source_id),
+            FOREIGN KEY(item_id) REFERENCES items(id) ON DELETE CASCADE
         );
         """
     )

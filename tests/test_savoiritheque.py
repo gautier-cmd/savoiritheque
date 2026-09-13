@@ -84,6 +84,23 @@ def item_id_by_title(client, title: str) -> int:
     return row[0]
 
 
+def book_candidate_id(client, item_id: int, source: str) -> int:
+    import sqlite3
+
+    db_path = client.application.config["DB_PATH"]
+    conn = sqlite3.connect(db_path)
+
+    try:
+        row = conn.execute(
+            "SELECT id FROM book_candidates WHERE item_id = ? AND source = ?",
+            (item_id, source),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    return row[0]
+
+
 def media_id_by_relative_path(client, relative_path: str) -> int:
     import sqlite3
 
@@ -273,3 +290,220 @@ def test_lecteur_video_derniere_video_sans_suivant(client) -> None:
     assert '<span class="disabled">Suivant →</span>' in data
     # Pas de video suivante : pas de script d'enchainement automatique.
     assert "addEventListener" not in data
+
+
+# --------------------------------------------------------------------
+# Métadonnées de livre (Google Books / Open Library)
+# --------------------------------------------------------------------
+
+FAKE_CANDIDATES = [
+    {
+        "source": "google_books",
+        "source_id": "gb-1",
+        "title": "Adobe Illustrator CS6",
+        "authors": "Adobe Press",
+        "publisher": "Pearson",
+        "published_year": "2012",
+        "isbn": "9782744025488",
+        "cover_url": "https://example.com/gb.jpg",
+    },
+    {
+        "source": "open_library",
+        "source_id": "ol-1",
+        "title": "Exploring Adobe Illustrator CS6",
+        "authors": "Toni Toland",
+        "publisher": None,
+        "published_year": "2012",
+        "isbn": None,
+        "cover_url": None,
+    },
+]
+
+
+def test_recherche_livre_affiche_les_candidats(client, monkeypatch) -> None:
+    import savoiritheque
+
+    monkeypatch.setattr(
+        savoiritheque, "search_candidates", lambda query, isbn=None: FAKE_CANDIDATES
+    )
+
+    item_id = item_id_by_title(client, "Adobe Illustrator CS6 (Adobe Press)")
+
+    response = client.post(
+        f"/item/{item_id}/book-search",
+        data={"query": "Adobe Illustrator CS6"},
+        follow_redirects=True,
+    )
+    data = response.data.decode()
+
+    assert response.status_code == 200
+    assert "Adobe Illustrator CS6" in data
+    assert "Exploring Adobe Illustrator CS6" in data
+    assert "Utiliser celle-ci" in data
+
+
+def test_recherche_livre_sur_item_non_livre_renvoie_404(client, monkeypatch) -> None:
+    import savoiritheque
+
+    monkeypatch.setattr(
+        savoiritheque, "search_candidates", lambda query, isbn=None: FAKE_CANDIDATES
+    )
+
+    item_id = item_id_by_title(
+        client, "Motion Design - la formation complete (TUTO.com)"
+    )
+
+    response = client.post(
+        f"/item/{item_id}/book-search", data={"query": "Motion Design"}
+    )
+
+    assert response.status_code == 404
+
+
+def test_accepter_candidat_affiche_les_metadonnees_validees(client, monkeypatch) -> None:
+    import savoiritheque
+
+    monkeypatch.setattr(
+        savoiritheque, "search_candidates", lambda query, isbn=None: FAKE_CANDIDATES
+    )
+
+    item_id = item_id_by_title(client, "Adobe Illustrator CS6 (Adobe Press)")
+    client.post(f"/item/{item_id}/book-search", data={"query": "Adobe Illustrator CS6"})
+
+    candidate_id = book_candidate_id(client, item_id, "google_books")
+    response = client.post(
+        f"/item/{item_id}/book-candidate/{candidate_id}/accept",
+        follow_redirects=True,
+    )
+    data = response.data.decode()
+
+    assert response.status_code == 200
+    assert "Pearson" in data
+    assert "9782744025488" in data
+    assert "Google Books" in data
+    # Le candidat non retenu ne doit plus etre propose comme en attente.
+    assert "Utiliser celle-ci" not in data
+
+
+def test_rejeter_candidat_le_memorise_et_ne_le_represente_pas(
+    client, monkeypatch
+) -> None:
+    import savoiritheque
+
+    monkeypatch.setattr(
+        savoiritheque, "search_candidates", lambda query, isbn=None: FAKE_CANDIDATES
+    )
+
+    item_id = item_id_by_title(client, "Adobe Illustrator CS6 (Adobe Press)")
+    client.post(f"/item/{item_id}/book-search", data={"query": "Adobe Illustrator CS6"})
+
+    candidate_id = book_candidate_id(client, item_id, "open_library")
+    response = client.post(
+        f"/item/{item_id}/book-candidate/{candidate_id}/reject",
+        follow_redirects=True,
+    )
+    data = response.data.decode()
+
+    assert response.status_code == 200
+    assert "Candidats rejetés (1)" in data
+
+    # Une nouvelle recherche qui retrouve le meme candidat (meme
+    # source + source_id) ne doit pas le re-proposer.
+    response = client.post(
+        f"/item/{item_id}/book-search",
+        data={"query": "Adobe Illustrator CS6"},
+        follow_redirects=True,
+    )
+    data = response.data.decode()
+
+    assert "Candidats rejetés (1)" in data
+
+
+def test_annuler_rejet_remet_le_candidat_en_attente(client, monkeypatch) -> None:
+    import savoiritheque
+
+    monkeypatch.setattr(
+        savoiritheque, "search_candidates", lambda query, isbn=None: FAKE_CANDIDATES
+    )
+
+    item_id = item_id_by_title(client, "Adobe Illustrator CS6 (Adobe Press)")
+    client.post(f"/item/{item_id}/book-search", data={"query": "Adobe Illustrator CS6"})
+
+    candidate_id = book_candidate_id(client, item_id, "open_library")
+    client.post(f"/item/{item_id}/book-candidate/{candidate_id}/reject")
+
+    response = client.post(
+        f"/item/{item_id}/book-candidate/{candidate_id}/unreject",
+        follow_redirects=True,
+    )
+    data = response.data.decode()
+
+    assert response.status_code == 200
+    assert "Exploring Adobe Illustrator CS6" in data
+    assert "Utiliser celle-ci" in data
+
+
+def test_saisie_manuelle_valide_directement(client) -> None:
+    item_id = item_id_by_title(client, "Adobe Illustrator CS6 (Adobe Press)")
+
+    response = client.post(
+        f"/item/{item_id}/book-manual",
+        data={
+            "title": "Adobe Illustrator CS6",
+            "authors": "Adobe Press",
+            "publisher": "Pearson",
+            "published_year": "2012",
+            "isbn": "9782744025488",
+        },
+        follow_redirects=True,
+    )
+    data = response.data.decode()
+
+    assert response.status_code == 200
+    assert "Pearson" in data
+    assert "Saisie manuelle" in data
+
+
+def test_rescan_ne_defait_pas_un_choix_valide(
+    client, monkeypatch, library, db
+) -> None:
+    import savoiritheque
+    from library_index import scan_library
+
+    monkeypatch.setattr(
+        savoiritheque, "search_candidates", lambda query, isbn=None: FAKE_CANDIDATES
+    )
+
+    item_id = item_id_by_title(client, "Adobe Illustrator CS6 (Adobe Press)")
+    client.post(f"/item/{item_id}/book-search", data={"query": "Adobe Illustrator CS6"})
+    candidate_id = book_candidate_id(client, item_id, "google_books")
+    client.post(f"/item/{item_id}/book-candidate/{candidate_id}/accept")
+
+    scan_library(library, db, verbose=False)
+
+    response = client.get(f"/item/{item_id}")
+    data = response.data.decode()
+
+    assert "Pearson" in data
+    assert "9782744025488" in data
+
+
+def test_recherche_isbn_priorisee_sur_le_titre(client, monkeypatch) -> None:
+    import savoiritheque
+
+    appels = []
+
+    def fake_search(query, isbn=None):
+        appels.append((query, isbn))
+        return []
+
+    monkeypatch.setattr(savoiritheque, "search_candidates", fake_search)
+
+    item_id = item_id_by_title(client, "Adobe Illustrator CS6 (Adobe Press)")
+
+    client.post(
+        f"/item/{item_id}/book-search",
+        data={"query": "voir 9782744025488 pour cette edition"},
+    )
+
+    assert appels == [("voir 9782744025488 pour cette edition", "9782744025488")]

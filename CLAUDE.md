@@ -25,6 +25,11 @@ mais n'écrit pas de code et ne corrige pas une commande lui-même.
 4. Ne jamais rendre le projet dépendant de Calibre. Les fichiers Calibre
    existants servent au plus de référence pour vérifier un résultat.
 5. Ne rien documenter qui n'existe pas encore : ça va dans le backlog.
+6. Ne jamais écrire une clé API (GOOGLE_BOOKS_API_KEY ou une autre) dans
+   le code, un fichier du dépôt ou un message de commit. Elle vient
+   uniquement de la variable d'environnement, propre à chaque
+   installation ; l'application doit fonctionner sans (la source
+   correspondante devient juste indisponible, pas une erreur).
 
 ## Environnement
 
@@ -38,6 +43,10 @@ mais n'écrit pas de code et ne corrige pas une commande lui-même.
     Données        /home/gautier/offlineu-test-data/savoiritheque.db
     Flask          3.1.1
     ffprobe        /usr/bin/ffprobe
+    GOOGLE_BOOKS_API_KEY   variable d'environnement, propre à chaque
+                           installation (jamais dans le dépôt, voir
+                           interdit n°6). Absente ici en développement :
+                           Google Books est alors simplement ignoré.
 
 ## État actuel
 
@@ -51,8 +60,11 @@ mais n'écrit pas de code et ne corrige pas une commande lui-même.
                         "000 - Presentation....html" (BeautifulSoup) pour
                         les réafficher avec le gabarit de Savoirthèque
                         plutôt que telles quelles
+    book_metadata.py    recherche de métadonnées de livres sur Google
+                        Books et Open Library, détection d'ISBN
     tests/              test_library_index.py, test_savoiritheque.py,
-                        test_presentation.py — 33 tests pytest
+                        test_presentation.py, test_book_metadata.py —
+                        51 tests pytest
     templates/          course_dashboard, lesson_view, select_course
                         (OfflineU, CSS repris comme point de départ) +
                         library_grid, item_detail, video_player
@@ -63,8 +75,9 @@ mais n'écrit pas de code et ne corrige pas une commande lui-même.
 Item (un dossier de premier niveau) contient des Media et des Resources.
 Le concept Lesson d'OfflineU est abandonné.
 
-Tables SQLite, schéma version 2 :
-schema_info, users, items, media, resources, progress.
+Tables SQLite, schéma version 3 :
+schema_info, users, items, media, resources, progress, book_search,
+book_candidates.
 
     media       item_id, relative_path, parent_path, sort_order,
                 media_type, extension, size_bytes,
@@ -72,6 +85,17 @@ schema_info, users, items, media, resources, progress.
                 UNIQUE(item_id, relative_path)
     resources   mêmes colonnes sans durée
     progress    UNIQUE(user_id, media_id) — jamais media_id seul
+
+    book_search      item_id (clé), query, searched_at — dernière
+                     recherche lancée pour un item livre
+    book_candidates  item_id, source ('google_books'|'open_library'
+                     |'manual'), source_id, champs bibliographiques,
+                     decision ('proposed'|'accepted'|'rejected')
+                     UNIQUE(item_id, source, source_id)
+
+book_search et book_candidates ne sont jamais touchées par scan_library :
+un rescan ne peut donc pas défaire une métadonnée validée ni faire
+réapparaître un candidat rejeté.
 
 parent_path est le sous-dossier du fichier, vide à la racine : c'est ce
 qui représente les chapitres. sort_order est le rang dans l'item, calculé
@@ -117,11 +141,37 @@ par tri naturel (10 après 9).
     /media/<media_id>/file  sert le fichier vidéo (Range HTTP géré par
                             Flask, permet d'avancer/reculer)
 
+    POST /item/<id>/book-search                        lance une recherche
+    POST /item/<id>/book-candidate/<id>/accept          valide un candidat
+    POST /item/<id>/book-candidate/<id>/reject          rejette un candidat
+    POST /item/<id>/book-candidate/<id>/unreject        annule un rejet
+    POST /item/<id>/book-manual                         saisie manuelle
+
 Chaque page de présentation a sa propre mise en page HTML (tableau, ou
 lignes en div avec couverture) selon l'item : presentation.py ne dépend
 d'aucune des deux en particulier, il repère les libellés de fiche
 technique par leur classe CSS commune ("k") et les blocs de texte par
 leur position dans le corps de page.
+
+### Métadonnées de livres (book_metadata.py)
+
+Sur la fiche d'un item de type book/book_audio/audiobook, une carte
+"Métadonnées" propose une recherche sur Google Books (avec
+GOOGLE_BOOKS_API_KEY) et Open Library, en priorisant un ISBN détecté
+dans les noms de fichiers/dossier (somme de contrôle vérifiée) sur une
+requête par titre (nettoyée du suffixe entre parenthèses, modifiable
+avant de lancer la recherche).
+
+Ni fusion ni tri par confiance entre les deux sources : les candidats
+sont montrés côte à côte, à valider ou rejeter à la main. Rien n'est
+jamais rempli automatiquement — une fiche vide vaut mieux qu'une fiche
+fausse. Un candidat rejeté reste mémorisé (consultable, réversible) et
+n'est jamais re-proposé. La saisie manuelle est traitée comme une
+source de plus, immédiatement validée.
+
+Cette tranche couvre les livres. Les formations restent couvertes par
+la page de présentation locale (ci-dessus) : les deux mécanismes
+coexistent, aucun n'est un repli pour l'autre.
 
 Pas encore fait : sauvegarde de la position de lecture, lecteur
 audio/PDF.
@@ -159,26 +209,20 @@ position pour EPUB.
   grille. Pour les deux autres (les courses, sans page de présentation
   avec image) : à extraire autrement (première page PDF, pochette M4B,
   image de vidéo) ou à récupérer en ligne.
-- Métadonnées enrichies. Comportement voulu : le moissonnage web est
-  tenté en premier ; s'il ne trouve rien, on se rabat sur les sources
-  suivantes dans l'ordre ; si aucune source automatique n'aboutit,
-  l'appli doit donner le nom de l'item à Gautier et soit attendre qu'il
-  fournisse une URL (pour retenter le moissonnage sur cette page
-  précise), soit lui proposer une saisie manuelle. Ordre des sources :
-  1. Moissonnage des pages de vente des plateformes commerciales
-     (TUTO.com, Udemy, LinkedIn, Elephorm...).
-  2. Fichiers locaux — FAIT pour la page de présentation (extraite et
-     réaffichée avec le gabarit de Savoirthèque, voir presentation.py
-     et "Application web" ci-dessus). Restent les faits déjà lisibles
-     par le scanner (durée, chapitres, nombre de médias) à afficher en
-     tête de fiche.
-  3. APIs publiques pour les livres (Google Books, Open Library) :
-     titre, auteur, ISBN, éditeur, année, couverture — champs factuels
-     uniquement.
-  4. Saisie manuelle : soit en réponse à l'échec des sources
-     automatiques (voir comportement ci-dessus), soit à tout moment
-     pour corriger ou compléter une fiche existante. Ces champs-là ne
-     sont jamais écrasés par un rescan.
+- Métadonnées de formations par moissonnage des plateformes commerciales
+  (TUTO.com, Udemy, LinkedIn, Elephorm...). Autorisé (usage strictement
+  personnel, décision explicite de Gautier), mais pas encore fait : pas
+  d'API publique sur ces sites, donc un scraper par plateforme, plus
+  fragile qu'un appel d'API (casse si le site change sa page). À
+  cadrer dans un plan séparé le moment venu. Pour les livres, voir
+  "Métadonnées de livres" ci-dessus (fait). Restent aussi, pour toutes
+  les fiches : les faits déjà lisibles par le scanner (durée, chapitres,
+  nombre de médias) à afficher en tête de fiche, et une saisie manuelle
+  générique pour les contenus de Gautier lui-même.
+- Si un moissonnage de plateforme ne trouve rien : donner le nom de
+  l'item à Gautier et soit attendre une URL (pour retenter le
+  moissonnage dessus), soit proposer la saisie manuelle — même logique
+  que "Aucune ne convient" côté livres.
 - requirements-dev.txt pour pytest.
 - Clé SSH GitHub à la place du token en clair dans ~/.git-credentials.
 - Watcher automatique — seulement après un scanner manuel fiable.

@@ -12,10 +12,13 @@ import argparse
 import mimetypes
 from pathlib import Path
 
-from flask import Flask, abort, render_template, send_file
+from flask import Flask, abort, redirect, render_template, request, send_file, url_for
 
-from library_index import connect_database, format_duration
+from library_index import connect_database, format_duration, now_iso
 from presentation import parse_presentation
+from book_metadata import default_query, find_isbn, search_candidates
+
+BOOK_ITEM_TYPES = ("book", "book_audio", "audiobook")
 
 
 def fetch_video_media(conn, media_id: int):
@@ -76,6 +79,187 @@ def read_presentation(library_root: Path, library_path: str, relative_path: str)
         return None
 
     return parse_presentation(html_text)
+
+
+def fetch_book_candidates(conn, item_id: int):
+    return conn.execute(
+        """
+        SELECT id, source, source_id, title, authors, publisher,
+               published_year, isbn, cover_url, decision
+        FROM book_candidates
+        WHERE item_id = ?
+        ORDER BY id
+        """,
+        (item_id,),
+    ).fetchall()
+
+
+def fetch_book_state(conn, item_id: int) -> dict:
+    """État de la recherche de métadonnées pour un item livre.
+
+    Le statut n'est pas stocké : il est déduit des candidats présents,
+    pour ne jamais désynchroniser un champ "statut" du contenu réel de
+    book_candidates.
+    """
+
+    search_row = conn.execute(
+        "SELECT query, searched_at FROM book_search WHERE item_id = ?",
+        (item_id,),
+    ).fetchone()
+
+    candidates = fetch_book_candidates(conn, item_id)
+    accepted = next((c for c in candidates if c["decision"] == "accepted"), None)
+    proposed = [c for c in candidates if c["decision"] == "proposed"]
+    rejected = [c for c in candidates if c["decision"] == "rejected"]
+
+    if accepted is not None:
+        status = "validated"
+    elif proposed:
+        status = "has_candidates"
+    elif search_row is not None:
+        status = "searched_no_match"
+    else:
+        status = "never_searched"
+
+    return {
+        "status": status,
+        "query": search_row["query"] if search_row else None,
+        "accepted": accepted,
+        "proposed": proposed,
+        "rejected": rejected,
+    }
+
+
+def detect_isbn_for_item(conn, item) -> str | None:
+    texts = [item["title"]]
+    texts += [
+        row["relative_path"]
+        for row in conn.execute(
+            """
+            SELECT relative_path FROM media WHERE item_id = ?
+            UNION ALL
+            SELECT relative_path FROM resources WHERE item_id = ?
+            """,
+            (item["id"], item["id"]),
+        )
+    ]
+    return find_isbn(*texts)
+
+
+def run_book_search(conn, item_id: int, raw_query: str) -> None:
+    """Lance une recherche et enregistre les candidats trouvés.
+
+    Une recherche par ISBN écrase toujours une recherche par titre :
+    si la requête contient un ISBN valide, c'est lui qui est utilisé
+    (identifiant fiable), le reste du texte est ignoré pour la requête
+    envoyée aux deux sources.
+    """
+
+    isbn = find_isbn(raw_query)
+    candidates = search_candidates(query=raw_query.strip(), isbn=isbn)
+    now = now_iso()
+
+    conn.execute(
+        """
+        INSERT INTO book_search(item_id, query, searched_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT(item_id) DO UPDATE SET query = excluded.query, searched_at = excluded.searched_at
+        """,
+        (item_id, raw_query.strip(), now),
+    )
+
+    for candidate in candidates:
+        conn.execute(
+            """
+            INSERT INTO book_candidates(
+                item_id, source, source_id, title, authors, publisher,
+                published_year, isbn, cover_url, decision, found_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'proposed', ?)
+            ON CONFLICT(item_id, source, source_id) DO NOTHING
+            """,
+            (
+                item_id,
+                candidate["source"],
+                candidate["source_id"],
+                candidate["title"],
+                candidate["authors"],
+                candidate["publisher"],
+                candidate["published_year"],
+                candidate["isbn"],
+                candidate["cover_url"],
+                now,
+            ),
+        )
+
+
+def demote_accepted_candidate(conn, item_id: int, except_id: int = -1) -> None:
+    """Repasse à "proposé" l'éventuel candidat déjà validé de l'item.
+
+    Appelé avant d'en valider un autre : changer d'avis ne doit rien
+    effacer, l'ancien choix reste consultable comme un candidat parmi
+    d'autres.
+    """
+
+    conn.execute(
+        """
+        UPDATE book_candidates SET decision = 'proposed', decided_at = NULL
+        WHERE item_id = ? AND decision = 'accepted' AND id != ?
+        """,
+        (item_id, except_id),
+    )
+
+
+def accept_book_candidate(conn, item_id: int, candidate_id: int) -> None:
+    demote_accepted_candidate(conn, item_id, except_id=candidate_id)
+
+    conn.execute(
+        """
+        UPDATE book_candidates SET decision = 'accepted', decided_at = ?
+        WHERE id = ? AND item_id = ?
+        """,
+        (now_iso(), candidate_id, item_id),
+    )
+
+
+def save_manual_candidate(conn, item_id: int, fields: dict) -> None:
+    """Enregistre une saisie manuelle comme métadonnées validées.
+
+    source_id fixe ("manual") : une seule fiche saisie à la main par
+    item, une nouvelle saisie remplace la précédente plutôt que d'en
+    accumuler.
+    """
+
+    demote_accepted_candidate(conn, item_id)
+    now = now_iso()
+
+    conn.execute(
+        """
+        INSERT INTO book_candidates(
+            item_id, source, source_id, title, authors, publisher,
+            published_year, isbn, cover_url, decision, found_at, decided_at
+        )
+        VALUES (?, 'manual', 'manual', ?, ?, ?, ?, ?, NULL, 'accepted', ?, ?)
+        ON CONFLICT(item_id, source, source_id) DO UPDATE SET
+            title = excluded.title,
+            authors = excluded.authors,
+            publisher = excluded.publisher,
+            published_year = excluded.published_year,
+            isbn = excluded.isbn,
+            decision = 'accepted',
+            decided_at = excluded.decided_at
+        """,
+        (
+            item_id,
+            fields.get("title") or None,
+            fields.get("authors") or None,
+            fields.get("publisher") or None,
+            fields.get("published_year") or None,
+            fields.get("isbn") or None,
+            now,
+            now,
+        ),
+    )
 
 
 def group_by_parent(rows):
@@ -191,14 +375,127 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
                 presentation_resource["relative_path"],
             )
 
+        book = None
+        if item["item_type"] in BOOK_ITEM_TYPES:
+            conn = connect_database(app.config["DB_PATH"])
+            try:
+                book = fetch_book_state(conn, item_id)
+                if book["query"] is None:
+                    isbn = detect_isbn_for_item(conn, item)
+                    book["suggested_query"] = isbn or default_query(item["title"])
+                    book["isbn_detected"] = isbn
+            finally:
+                conn.close()
+
         return render_template(
             "item_detail.html",
             item=item,
             chapters=chapters,
             resources=resources,
             presentation=presentation,
+            book=book,
             format_duration=format_duration,
         )
+
+    def fetch_book_item_or_404(conn, item_id: int):
+        item = conn.execute(
+            "SELECT id, item_type FROM items WHERE id = ?", (item_id,)
+        ).fetchone()
+
+        if item is None or item["item_type"] not in BOOK_ITEM_TYPES:
+            abort(404)
+
+        return item
+
+    @app.route("/item/<int:item_id>/book-search", methods=["POST"])
+    def book_search(item_id: int):
+        conn = connect_database(app.config["DB_PATH"])
+
+        try:
+            fetch_book_item_or_404(conn, item_id)
+            raw_query = request.form.get("query", "").strip()
+
+            if raw_query:
+                run_book_search(conn, item_id, raw_query)
+                conn.commit()
+        finally:
+            conn.close()
+
+        return redirect(url_for("item_detail", item_id=item_id) + "#metadonnees")
+
+    @app.route("/item/<int:item_id>/book-candidate/<int:candidate_id>/accept", methods=["POST"])
+    def book_candidate_accept(item_id: int, candidate_id: int):
+        conn = connect_database(app.config["DB_PATH"])
+
+        try:
+            fetch_book_item_or_404(conn, item_id)
+            accept_book_candidate(conn, item_id, candidate_id)
+            conn.commit()
+        finally:
+            conn.close()
+
+        return redirect(url_for("item_detail", item_id=item_id) + "#metadonnees")
+
+    @app.route("/item/<int:item_id>/book-candidate/<int:candidate_id>/reject", methods=["POST"])
+    def book_candidate_reject(item_id: int, candidate_id: int):
+        conn = connect_database(app.config["DB_PATH"])
+
+        try:
+            fetch_book_item_or_404(conn, item_id)
+            conn.execute(
+                """
+                UPDATE book_candidates SET decision = 'rejected', decided_at = ?
+                WHERE id = ? AND item_id = ?
+                """,
+                (now_iso(), candidate_id, item_id),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        return redirect(url_for("item_detail", item_id=item_id) + "#metadonnees")
+
+    @app.route("/item/<int:item_id>/book-candidate/<int:candidate_id>/unreject", methods=["POST"])
+    def book_candidate_unreject(item_id: int, candidate_id: int):
+        conn = connect_database(app.config["DB_PATH"])
+
+        try:
+            fetch_book_item_or_404(conn, item_id)
+            conn.execute(
+                """
+                UPDATE book_candidates SET decision = 'proposed', decided_at = NULL
+                WHERE id = ? AND item_id = ? AND decision = 'rejected'
+                """,
+                (candidate_id, item_id),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        return redirect(url_for("item_detail", item_id=item_id) + "#metadonnees")
+
+    @app.route("/item/<int:item_id>/book-manual", methods=["POST"])
+    def book_manual(item_id: int):
+        conn = connect_database(app.config["DB_PATH"])
+
+        try:
+            fetch_book_item_or_404(conn, item_id)
+            save_manual_candidate(
+                conn,
+                item_id,
+                {
+                    "title": request.form.get("title", "").strip(),
+                    "authors": request.form.get("authors", "").strip(),
+                    "publisher": request.form.get("publisher", "").strip(),
+                    "published_year": request.form.get("published_year", "").strip(),
+                    "isbn": request.form.get("isbn", "").strip(),
+                },
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        return redirect(url_for("item_detail", item_id=item_id) + "#metadonnees")
 
     @app.route("/watch/<int:media_id>")
     def watch_video(media_id: int):

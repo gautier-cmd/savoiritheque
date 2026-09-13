@@ -18,6 +18,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from library_index import (  # noqa: E402
+    SCHEMA_VERSION,
     format_duration,
     natural_key,
     parent_of,
@@ -588,7 +589,7 @@ def test_migration_depuis_schema_v1(library: Path, db: Path) -> None:
     }
 
     assert {"parent_path", "sort_order", "duration_seconds", "probed_at"} <= colonnes
-    assert query(db, "SELECT version FROM schema_info") == [(2,)]
+    assert query(db, "SELECT version FROM schema_info") == [(SCHEMA_VERSION,)]
 
     # Le media prealable garde son id 1, donc sa progression.
     assert query(
