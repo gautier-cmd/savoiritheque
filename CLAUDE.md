@@ -1,4 +1,4 @@
-# Savoirthèque
+# Studia
 
 Bibliothèque personnelle et plateforme d'apprentissage multi-supports,
 dérivée d'OfflineU (MIT, WhiskeyCoder).
@@ -36,11 +36,11 @@ mais n'écrit pas de code et ne corrige pas une commande lui-même.
     Poste          gautier@gautierPC, développement exclusivement local
     Dépôt          /home/gautier/dev/offlineu-lab
     Branche        offlineu-lab
-    Remote origin  github.com/gautier-cmd/savoiritheque (le sien)
+    Remote origin  github.com/gautier-cmd/studia (le sien)
     Remote upstream github.com/WhiskeyCoder/OfflineU (projet d'origine, lecture seule)
     Venv           .venv (à activer : source .venv/bin/activate)
     Bibliothèque   /home/gautier/offlineu-test-library
-    Données        /home/gautier/offlineu-test-data/savoiritheque.db
+    Données        /home/gautier/offlineu-test-data/studia.db
     Flask          3.1.1
     ffprobe        /usr/bin/ffprobe
     GOOGLE_BOOKS_API_KEY   variable d'environnement, propre à chaque
@@ -53,22 +53,22 @@ mais n'écrit pas de code et ne corrige pas une commande lui-même.
 ### Fichiers
 
     offlineu_core.py    application OfflineU d'origine, 1003 lignes, INTACTE
-    library_index.py    scanner SQLite de Savoirthèque
-    savoiritheque.py    application web de consultation (Flask) : grille,
+    library_index.py    scanner SQLite de Studia
+    studia.py           application web de consultation (Flask) : grille,
                         fiche d'item, lecteur vidéo
     presentation.py     extrait couverture/fiche technique/texte des pages
                         "000 - Presentation....html" (BeautifulSoup) pour
-                        les réafficher avec le gabarit de Savoirthèque
+                        les réafficher avec le gabarit de Studia
                         plutôt que telles quelles
     book_metadata.py    recherche de métadonnées de livres sur Google
                         Books et Open Library, détection d'ISBN
-    tests/              test_library_index.py, test_savoiritheque.py,
+    tests/              test_library_index.py, test_studia.py,
                         test_presentation.py, test_book_metadata.py —
                         51 tests pytest
     templates/          course_dashboard, lesson_view, select_course
                         (OfflineU, CSS repris comme point de départ) +
                         library_grid, item_detail, video_player
-                        (Savoirthèque)
+                        (Studia)
 
 ### Modèle de données
 
@@ -131,7 +131,7 @@ par tri naturel (10 après 9).
     Motion Design - la formation complete  course, 258 médias, 27 chapitres, 55h10
     S organiser pour reussir (David Allen) audiobook, 1 M4B, 3h05
 
-### Application web (savoiritheque.py)
+### Application web (studia.py)
 
     /                       grille des items (type, durée, nb de médias)
     /item/<id>              fiche : présentation extraite (si le fichier
@@ -181,7 +181,7 @@ audio/PDF.
 Une application web locale mono-utilisateur lisant SQLite :
 grille de couvertures -> fiche d'un item -> lecteurs -> progression.
 
-Décision prise : écrire une nouvelle application (savoiritheque.py) à côté
+Décision prise : écrire une nouvelle application (studia.py) à côté
 d'OfflineU plutôt que de modifier offlineu_core.py, dont les 154
 occurrences de « lesson » et l'état global current_course sont
 incompatibles avec le modèle. Le CSS des templates existants est

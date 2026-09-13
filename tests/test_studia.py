@@ -1,4 +1,4 @@
-"""Tests de l'application web Savoirthèque (grille + fiche d'item).
+"""Tests de l'application web Studia (grille + fiche d'item).
 
 Reprend les mêmes fixtures que test_library_index.py : une
 bibliothèque jetable construite dans un dossier temporaire, scannée
@@ -15,7 +15,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from library_index import scan_library  # noqa: E402
-from savoiritheque import create_app  # noqa: E402
+from studia import create_app  # noqa: E402
 
 
 def make_file(path: Path, content: bytes = b"x") -> None:
@@ -55,7 +55,7 @@ def library(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def db(tmp_path: Path) -> Path:
-    return tmp_path / "data" / "savoiritheque.db"
+    return tmp_path / "data" / "studia.db"
 
 
 @pytest.fixture
@@ -321,10 +321,10 @@ FAKE_CANDIDATES = [
 
 
 def test_recherche_livre_affiche_les_candidats(client, monkeypatch) -> None:
-    import savoiritheque
+    import studia
 
     monkeypatch.setattr(
-        savoiritheque, "search_candidates", lambda query, isbn=None: FAKE_CANDIDATES
+        studia, "search_candidates", lambda query, isbn=None: FAKE_CANDIDATES
     )
 
     item_id = item_id_by_title(client, "Adobe Illustrator CS6 (Adobe Press)")
@@ -343,10 +343,10 @@ def test_recherche_livre_affiche_les_candidats(client, monkeypatch) -> None:
 
 
 def test_recherche_livre_sur_item_non_livre_renvoie_404(client, monkeypatch) -> None:
-    import savoiritheque
+    import studia
 
     monkeypatch.setattr(
-        savoiritheque, "search_candidates", lambda query, isbn=None: FAKE_CANDIDATES
+        studia, "search_candidates", lambda query, isbn=None: FAKE_CANDIDATES
     )
 
     item_id = item_id_by_title(
@@ -361,10 +361,10 @@ def test_recherche_livre_sur_item_non_livre_renvoie_404(client, monkeypatch) -> 
 
 
 def test_accepter_candidat_affiche_les_metadonnees_validees(client, monkeypatch) -> None:
-    import savoiritheque
+    import studia
 
     monkeypatch.setattr(
-        savoiritheque, "search_candidates", lambda query, isbn=None: FAKE_CANDIDATES
+        studia, "search_candidates", lambda query, isbn=None: FAKE_CANDIDATES
     )
 
     item_id = item_id_by_title(client, "Adobe Illustrator CS6 (Adobe Press)")
@@ -388,10 +388,10 @@ def test_accepter_candidat_affiche_les_metadonnees_validees(client, monkeypatch)
 def test_rejeter_candidat_le_memorise_et_ne_le_represente_pas(
     client, monkeypatch
 ) -> None:
-    import savoiritheque
+    import studia
 
     monkeypatch.setattr(
-        savoiritheque, "search_candidates", lambda query, isbn=None: FAKE_CANDIDATES
+        studia, "search_candidates", lambda query, isbn=None: FAKE_CANDIDATES
     )
 
     item_id = item_id_by_title(client, "Adobe Illustrator CS6 (Adobe Press)")
@@ -420,10 +420,10 @@ def test_rejeter_candidat_le_memorise_et_ne_le_represente_pas(
 
 
 def test_annuler_rejet_remet_le_candidat_en_attente(client, monkeypatch) -> None:
-    import savoiritheque
+    import studia
 
     monkeypatch.setattr(
-        savoiritheque, "search_candidates", lambda query, isbn=None: FAKE_CANDIDATES
+        studia, "search_candidates", lambda query, isbn=None: FAKE_CANDIDATES
     )
 
     item_id = item_id_by_title(client, "Adobe Illustrator CS6 (Adobe Press)")
@@ -467,11 +467,11 @@ def test_saisie_manuelle_valide_directement(client) -> None:
 def test_rescan_ne_defait_pas_un_choix_valide(
     client, monkeypatch, library, db
 ) -> None:
-    import savoiritheque
+    import studia
     from library_index import scan_library
 
     monkeypatch.setattr(
-        savoiritheque, "search_candidates", lambda query, isbn=None: FAKE_CANDIDATES
+        studia, "search_candidates", lambda query, isbn=None: FAKE_CANDIDATES
     )
 
     item_id = item_id_by_title(client, "Adobe Illustrator CS6 (Adobe Press)")
@@ -489,7 +489,7 @@ def test_rescan_ne_defait_pas_un_choix_valide(
 
 
 def test_recherche_isbn_priorisee_sur_le_titre(client, monkeypatch) -> None:
-    import savoiritheque
+    import studia
 
     appels = []
 
@@ -497,7 +497,7 @@ def test_recherche_isbn_priorisee_sur_le_titre(client, monkeypatch) -> None:
         appels.append((query, isbn))
         return []
 
-    monkeypatch.setattr(savoiritheque, "search_candidates", fake_search)
+    monkeypatch.setattr(studia, "search_candidates", fake_search)
 
     item_id = item_id_by_title(client, "Adobe Illustrator CS6 (Adobe Press)")
 

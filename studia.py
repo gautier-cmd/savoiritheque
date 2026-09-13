@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Application web de consultation de la bibliothèque Savoirthèque.
+"""Application web de consultation de la bibliothèque Studia.
 
 Lecture seule pour l'instant : grille des items puis fiche d'un item.
 Les lecteurs (vidéo, audio, PDF) et l'écriture de la progression

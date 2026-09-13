@@ -2,7 +2,7 @@
 
 Ne remplit jamais une fiche automatiquement : ces fonctions renvoient
 des candidats, à valider ou rejeter humainement (voir les routes
-book_* de savoiritheque.py). Une fiche vide vaut mieux qu'une fiche
+book_* de studia.py). Une fiche vide vaut mieux qu'une fiche
 fausse.
 
 La clé Google Books vient uniquement de la variable d'environnement

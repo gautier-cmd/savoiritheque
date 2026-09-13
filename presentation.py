@@ -6,7 +6,7 @@ structure des balises) varie d'un fichier à l'autre car ces pages ne
 sont pas produites par un outil commun. Plutôt que de l'afficher telle
 quelle dans le navigateur (avec sa propre feuille de style), cette
 fonction en extrait la matière utile — couverture, fiche technique,
-texte — pour la réafficher avec le gabarit de Savoirthèque.
+texte — pour la réafficher avec le gabarit de Studia.
 
 Convention observée sur les quatre fichiers de test, quelle que soit
 la mise en page (tableau ou lignes en div) : le libellé de chaque
@@ -23,7 +23,7 @@ def _extract_runs(el: Tag) -> list[dict]:
 
     Une valeur de fiche technique est parfois un simple texte, parfois
     un ou plusieurs liens (source, ISBN...). On les affichera avec le
-    style de Savoirthèque, mais il faut d'abord distinguer ce qui est
+    style de Studia, mais il faut d'abord distinguer ce qui est
     cliquable de ce qui ne l'est pas.
     """
 

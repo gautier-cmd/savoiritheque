@@ -763,7 +763,7 @@ def print_summary(db_path: Path) -> None:
 
     try:
         print()
-        print("=== INDEX SAVOIRTHEQUE ===")
+        print("=== INDEX STUDIA ===")
 
         # Sous-requetes plutot que jointures : deux LEFT JOIN
         # simultanes multiplieraient les lignes et fausseraient

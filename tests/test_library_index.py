@@ -1,4 +1,4 @@
-"""Tests du scanner SQLite de Savoirtheque.
+"""Tests du scanner SQLite de Studia.
 
 Chaque test construit une bibliotheque jetable dans un dossier
 temporaire fourni par pytest (tmp_path), la scanne, puis verifie
@@ -104,7 +104,7 @@ def library(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def db(tmp_path: Path) -> Path:
-    return tmp_path / "data" / "savoiritheque.db"
+    return tmp_path / "data" / "studia.db"
 
 
 # --------------------------------------------------------------------
