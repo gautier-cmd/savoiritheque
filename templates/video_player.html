@@ -1,222 +1,71 @@
+{% extends "_base.html" %}
 {% from "_note_widget.html" import render_note, render_print_block %}
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ media['relative_path'].rsplit('/', 1)[-1] }} - Studia</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #1a1a1a;
-            color: #e0e0e0;
-        }
+{% block title %}{{ media['relative_path'].rsplit('/', 1)[-1] }} - Studia{% endblock %}
 
-        .layout {
-            display: flex;
-            gap: 20px;
-            max-width: 1300px;
-            margin: 0 auto;
-            padding: 20px;
-            align-items: flex-start;
-        }
+{% block body_class %}page-player{% endblock %}
 
-        .main {
-            flex: 1;
-            min-width: 0;
-        }
+{% block content %}
+<div class="layout">
+    <div class="main">
+        <a class="back" href="{{ url_for('item_detail', item_id=media['item_id']) }}">← {{ media['item_title'] }}</a>
+        <h1>{{ media['relative_path'].rsplit('/', 1)[-1] }}</h1>
+        <video id="player" controls autoplay src="{{ url_for('media_file', media_id=media['id']) }}"></video>
+        <div class="nav-buttons">
+            {% if prev_id %}
+            <a href="{{ url_for('watch_video', media_id=prev_id) }}">← Précédent</a>
+            {% else %}
+            <span class="disabled">← Précédent</span>
+            {% endif %}
 
-        a.back {
-            color: #999;
-            text-decoration: none;
-            display: inline-block;
-            margin-bottom: 15px;
-        }
-
-        h1 {
-            font-size: 1.2em;
-            margin-bottom: 15px;
-        }
-
-        video {
-            width: 100%;
-            border-radius: 8px;
-            display: block;
-            background: black;
-        }
-
-        .nav-buttons {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 12px;
-        }
-
-        .nav-buttons a {
-            background: #2d2d2d;
-            color: #e0e0e0;
-            text-decoration: none;
-            padding: 8px 16px;
-            border-radius: 5px;
-            border-left: 3px solid #007acc;
-        }
-
-        .nav-buttons a:hover {
-            background: #3d3d3d;
-        }
-
-        .nav-buttons span.disabled {
-            color: #555;
-            padding: 8px 16px;
-        }
-
-        .playlist {
-            width: 320px;
-            flex-shrink: 0;
-            background: #2d2d2d;
-            border-radius: 8px;
-            max-height: 85vh;
-            overflow-y: auto;
-        }
-
-        .playlist h3 {
-            padding: 12px 15px 6px;
-            color: #007acc;
-            font-size: 0.9em;
-        }
-
-        .playlist a {
-            display: block;
-            padding: 8px 15px;
-            color: #ccc;
-            text-decoration: none;
-            font-size: 0.9em;
-            border-left: 3px solid transparent;
-        }
-
-        .playlist a:hover {
-            background: #3d3d3d;
-        }
-
-        .playlist a.current {
-            background: #1e3a52;
-            border-left-color: #007acc;
-            color: #fff;
-            font-weight: 500;
-        }
-
-        @media (max-width: 900px) {
-            .layout {
-                flex-direction: column;
-            }
-
-            .playlist {
-                width: 100%;
-                max-height: 40vh;
-            }
-        }
-
-        .card {
-            background: #2d2d2d;
-            border-radius: 8px;
-            padding: 20px;
-            margin-top: 20px;
-            border-left: 4px solid #007acc;
-        }
-
-        .card h3 {
-            margin-bottom: 12px;
-            color: #007acc;
-        }
-
-        .hint {
-            color: #999;
-            font-size: 0.85em;
-            margin: 6px 0;
-        }
-
-        .btn-mini {
-            background: #007acc;
-            color: white;
-            border: none;
-            padding: 4px 10px;
-            border-radius: 4px;
-            font-size: 0.8em;
-            cursor: pointer;
-        }
-
-        .btn-mini.secondary {
-            background: #444;
-        }
-
-        {% include "_note_style.html" %}
-    </style>
-</head>
-<body>
-    <div class="layout">
-        <div class="main">
-            <a class="back" href="{{ url_for('item_detail', item_id=media['item_id']) }}">← {{ media['item_title'] }}</a>
-            <h1>{{ media['relative_path'].rsplit('/', 1)[-1] }}</h1>
-            <video id="player" controls autoplay src="{{ url_for('media_file', media_id=media['id']) }}"></video>
-            <div class="nav-buttons">
-                {% if prev_id %}
-                <a href="{{ url_for('watch_video', media_id=prev_id) }}">← Précédent</a>
-                {% else %}
-                <span class="disabled">← Précédent</span>
-                {% endif %}
-
-                {% if next_id %}
-                <a href="{{ url_for('watch_video', media_id=next_id) }}">Suivant →</a>
-                {% else %}
-                <span class="disabled">Suivant →</span>
-                {% endif %}
-            </div>
-        </div>
-
-        <div class="playlist">
-            {% for parent_path, media_list in chapters %}
-            <h3>{{ parent_path if parent_path else 'Racine' }}</h3>
-            {% for item in media_list %}
-            <a class="{{ 'current' if item['id'] == current_media_id else '' }}"
-               href="{{ url_for('watch_video', media_id=item['id']) }}">
-                {{ item['relative_path'].rsplit('/', 1)[-1] }}
-            </a>
-            {% endfor %}
-            {% endfor %}
+            {% if next_id %}
+            <a href="{{ url_for('watch_video', media_id=next_id) }}">Suivant →</a>
+            {% else %}
+            <span class="disabled">Suivant →</span>
+            {% endif %}
         </div>
     </div>
 
-    <div class="layout" style="padding-top: 0;">
-        <div class="main">
-            {{ render_note(media['item_id'], note_text, note_updated_at, player_context=player_context) }}
-        </div>
-        <div style="width: 320px; flex-shrink: 0;"></div>
+    <div class="playlist">
+        {% for parent_path, media_list in chapters %}
+        <h3>{{ parent_path if parent_path else 'Racine' }}</h3>
+        {% for item in media_list %}
+        <a class="{{ 'current' if item['id'] == current_media_id else '' }}"
+           href="{{ url_for('watch_video', media_id=item['id']) }}">
+            {{ item['relative_path'].rsplit('/', 1)[-1] }}
+        </a>
+        {% endfor %}
+        {% endfor %}
     </div>
+</div>
 
-    {% if seek_seconds %}
-    <script>
-        (function () {
-            var player = document.getElementById('player');
-            player.addEventListener('loadedmetadata', function () {
-                player.currentTime = {{ seek_seconds }};
-            });
-        })();
-    </script>
-    {% endif %}
+<div class="layout" style="padding-top: 0;">
+    <div class="main">
+        {{ render_note(media['item_id'], note_text, note_updated_at, player_context=player_context) }}
+    </div>
+    <div style="width: 320px; flex-shrink: 0;"></div>
+</div>
 
-    {% if next_id %}
-    <script>
-        document.getElementById('player').addEventListener('ended', function () {
-            window.location.href = {{ url_for('watch_video', media_id=next_id) | tojson }};
+{{ render_print_block(media['item_title']) }}
+{% endblock %}
+
+{% block scripts %}
+{% if seek_seconds %}
+<script>
+    (function () {
+        var player = document.getElementById('player');
+        player.addEventListener('loadedmetadata', function () {
+            player.currentTime = {{ seek_seconds }};
         });
-    </script>
-    {% endif %}
+    })();
+</script>
+{% endif %}
 
-    {{ render_print_block(media['item_title']) }}
-</body>
-</html>
+{% if next_id %}
+<script>
+    document.getElementById('player').addEventListener('ended', function () {
+        window.location.href = {{ url_for('watch_video', media_id=next_id) | tojson }};
+    });
+</script>
+{% endif %}
+{% endblock %}

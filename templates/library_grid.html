@@ -1,152 +1,45 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Studia</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+{% extends "_base.html" %}
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #1a1a1a;
-            color: #e0e0e0;
-            line-height: 1.6;
-        }
+{% block title %}Studia{% endblock %}
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
+{% block body_class %}page-grid relaxed{% endblock %}
 
-        .header {
-            background: #2d2d2d;
-            padding: 20px 0;
-            margin-bottom: 30px;
-            border-bottom: 3px solid #007acc;
-        }
-
-        .header h1 {
-            color: #007acc;
-            text-align: center;
-            font-size: 2.5em;
-        }
-
-        .header nav {
-            text-align: center;
-            margin-top: 8px;
-        }
-
-        .header nav a {
-            color: #999;
-            font-size: 0.85em;
-            text-decoration: none;
-        }
-
-        .header nav a:hover {
-            color: #4aa3ff;
-        }
-
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-            gap: 20px;
-        }
-
-        .card {
-            background: #2d2d2d;
-            border-radius: 8px;
-            overflow: hidden;
-            text-decoration: none;
-            color: inherit;
-            border-left: 4px solid #007acc;
-            transition: transform 0.15s;
-        }
-
-        .card:hover {
-            transform: translateY(-3px);
-        }
-
-        .cover {
-            height: 140px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 3em;
-        }
-
-        .cover.course { background: #7a2323; }
-        .cover.book { background: #234a7a; }
-        .cover.book_audio { background: #4a237a; }
-        .cover.audiobook { background: #237a5c; }
-        .cover.document { background: #555; }
-
-        .card-body {
-            padding: 15px;
-        }
-
-        .card-body h2 {
-            font-size: 1.05em;
-            margin-bottom: 8px;
-        }
-
-        .meta {
-            font-size: 0.85em;
-            color: #999;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 3px;
-            font-size: 0.75em;
-            text-transform: uppercase;
-            background: #007acc;
-            color: white;
-            margin-bottom: 6px;
-        }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <div class="container">
-            <h1>Studia</h1>
-            {% if orphan_note_count %}
-            <nav>
-                <a href="{{ url_for('orphan_notes') }}">Notes sans formation ({{ orphan_note_count }})</a>
-            </nav>
-            {% endif %}
-        </div>
-    </div>
-
+{% block header %}
+<div class="header">
     <div class="container">
-        <div class="grid">
-            {% for item in items %}
-            <a class="card" href="{{ url_for('item_detail', item_id=item['id']) }}">
-                <div class="cover {{ item['item_type'] }}">
-                    {% if item['item_type'] == 'course' %}🎬
-                    {% elif item['item_type'] in ('book', 'book_audio') %}📖
-                    {% elif item['item_type'] == 'audiobook' %}🎧
-                    {% else %}📄{% endif %}
-                </div>
-                <div class="card-body">
-                    <span class="badge">{{ item['item_type'] }}</span>
-                    <h2>{{ item['title'] }}</h2>
-                    <div class="meta">
-                        {{ item['media_count'] }} média(s)
-                        {% if item['resource_count'] %}· {{ item['resource_count'] }} ressource(s){% endif %}
-                        {% if item['chapter_count'] %}· {{ item['chapter_count'] }} chapitre(s){% endif %}
-                    </div>
-                    <div class="meta">{{ format_duration(item['total_duration']) }}</div>
-                </div>
-            </a>
-            {% endfor %}
-        </div>
+        <h1>Studia</h1>
+        {% if orphan_note_count %}
+        <nav>
+            <a href="{{ url_for('orphan_notes') }}">Notes sans formation ({{ orphan_note_count }})</a>
+        </nav>
+        {% endif %}
     </div>
-</body>
-</html>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="grid">
+        {% for item in items %}
+        <a class="card" href="{{ url_for('item_detail', item_id=item['id']) }}">
+            <div class="cover {{ item['item_type'] }}">
+                {% if item['item_type'] == 'course' %}🎬
+                {% elif item['item_type'] in ('book', 'book_audio') %}📖
+                {% elif item['item_type'] == 'audiobook' %}🎧
+                {% else %}📄{% endif %}
+            </div>
+            <div class="card-body">
+                <span class="badge">{{ item['item_type'] }}</span>
+                <h2>{{ item['title'] }}</h2>
+                <div class="meta">
+                    {{ item['media_count'] }} média(s)
+                    {% if item['resource_count'] %}· {{ item['resource_count'] }} ressource(s){% endif %}
+                    {% if item['chapter_count'] %}· {{ item['chapter_count'] }} chapitre(s){% endif %}
+                </div>
+                <div class="meta">{{ format_duration(item['total_duration']) }}</div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

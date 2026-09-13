@@ -1,142 +1,40 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Notes sans formation - Studia</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+{% extends "_base.html" %}
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #1a1a1a;
-            color: #e0e0e0;
-            line-height: 1.6;
-        }
+{% block title %}Notes sans formation - Studia{% endblock %}
 
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-        }
+{% block body_class %}page-orphans relaxed{% endblock %}
 
-        .header {
-            background: #2d2d2d;
-            padding: 20px 0;
-            margin-bottom: 30px;
-            border-bottom: 3px solid #007acc;
-        }
-
-        .header .container {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .header a {
-            color: #999;
-            text-decoration: none;
-        }
-
-        .header h1 {
-            font-size: 1.4em;
-        }
-
-        .card {
-            background: #2d2d2d;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-            border-left: 4px solid #007acc;
-        }
-
-        .card h3 {
-            margin-bottom: 8px;
-            color: #007acc;
-        }
-
-        .card .path {
-            color: #999;
-            font-size: 0.85em;
-            margin-bottom: 10px;
-        }
-
-        .preview {
-            white-space: pre-wrap;
-            font-size: 0.9em;
-            background: #1a1a1a;
-            border-radius: 4px;
-            padding: 10px;
-            max-height: 150px;
-            overflow-y: auto;
-            margin-bottom: 12px;
-        }
-
-        .reattach-form {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-
-        select {
-            background: #1a1a1a;
-            border: 1px solid #444;
-            color: #e0e0e0;
-            padding: 6px;
-            border-radius: 4px;
-            flex: 1;
-        }
-
-        .btn-mini {
-            background: #007acc;
-            color: white;
-            border: none;
-            padding: 6px 12px;
-            border-radius: 4px;
-            font-size: 0.85em;
-            cursor: pointer;
-        }
-
-        .hint {
-            color: #999;
-            font-size: 0.85em;
-        }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <div class="container">
-            <a href="{{ url_for('library_grid') }}">← Bibliothèque</a>
-            <h1>Notes sans formation</h1>
-        </div>
-    </div>
-
+{% block header %}
+<div class="header">
     <div class="container">
-        {% if not notes %}
-        <p class="hint">Aucune note orpheline pour l'instant.</p>
-        {% endif %}
-
-        {% for note in notes %}
-        <div class="card">
-            <h3>{{ note['library_path'] }}</h3>
-            <div class="path">Dossier introuvable dans la bibliothèque actuelle</div>
-            <div class="preview">{{ note['text'] }}</div>
-            <form class="reattach-form" method="post" action="{{ url_for('orphan_notes_reattach') }}">
-                <input type="hidden" name="library_path" value="{{ note['library_path'] }}">
-                <select name="target_item_id" required>
-                    <option value="" disabled selected>Rattacher à…</option>
-                    {% for item in items %}
-                    <option value="{{ item['id'] }}">{{ item['title'] }}</option>
-                    {% endfor %}
-                </select>
-                <button class="btn-mini" type="submit">Rattacher</button>
-            </form>
-        </div>
-        {% endfor %}
+        <a href="{{ url_for('library_grid') }}">← Bibliothèque</a>
+        <h1>Notes sans formation</h1>
     </div>
-</body>
-</html>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    {% if not notes %}
+    <p class="hint">Aucune note orpheline pour l'instant.</p>
+    {% endif %}
+
+    {% for note in notes %}
+    <div class="card">
+        <h3>{{ note['library_path'] }}</h3>
+        <div class="path">Dossier introuvable dans la bibliothèque actuelle</div>
+        <div class="preview">{{ note['text'] }}</div>
+        <form class="reattach-form" method="post" action="{{ url_for('orphan_notes_reattach') }}">
+            <input type="hidden" name="library_path" value="{{ note['library_path'] }}">
+            <select name="target_item_id" required>
+                <option value="" disabled selected>Rattacher à…</option>
+                {% for item in items %}
+                <option value="{{ item['id'] }}">{{ item['title'] }}</option>
+                {% endfor %}
+            </select>
+            <button class="btn-mini" type="submit">Rattacher</button>
+        </form>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

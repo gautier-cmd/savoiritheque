@@ -1,0 +1,621 @@
+/* Studia — feuille de style partagée par toutes les pages.
+   Les couleurs, espacements, rayons et tailles de police sont
+   déclarés une fois en haut (variables CSS) : les changer ici les
+   change partout, sans toucher au reste du fichier ni aux gabarits. */
+
+:root {
+    /* Couleurs */
+    --color-bg: #1a1a1a;
+    --color-surface: #2d2d2d;
+    --color-divider: #3d3d3d;
+    --color-border: #444;
+    --color-accent: #007acc;
+    --color-accent-light: #4aa3ff;
+    --color-text: #e0e0e0;
+    --color-text-muted: #999;
+    --color-text-faint: #555;
+    --color-danger: #663333;
+    --color-note-bg: #1e2a38;
+    --color-current-bg: #1e3a52;
+    --color-white: #fff;
+    --color-black: #000;
+
+    /* Couleurs de couverture, par type d'item (grille) */
+    --color-cover-course: #7a2323;
+    --color-cover-book: #234a7a;
+    --color-cover-book-audio: #4a237a;
+    --color-cover-audiobook: #237a5c;
+    --color-cover-document: #555;
+
+    /* Police */
+    --font-body: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+
+    /* Tailles de police */
+    --font-size-xs: 0.75em;
+    --font-size-sm: 0.8em;
+    --font-size-sm-plus: 0.85em;
+    --font-size-note: 0.88em;
+    --font-size-base-minus: 0.9em;
+    --font-size-base: 0.95em;
+    --font-size-md: 1em;
+    --font-size-md-plus: 1.05em;
+    --font-size-lg: 1.2em;
+    --font-size-lg-plus: 1.4em;
+    --font-size-xl: 1.6em;
+    --font-size-xxl: 2.5em;
+    --font-size-cover-icon: 3em;
+
+    /* Espacements */
+    --space-1: 2px;
+    --space-2: 4px;
+    --space-3: 6px;
+    --space-4: 8px;
+    --space-5: 10px;
+    --space-6: 12px;
+    --space-7: 14px;
+    --space-8: 15px;
+    --space-9: 16px;
+    --space-10: 20px;
+    --space-11: 30px;
+
+    /* Rayons */
+    --radius-xs: 3px;
+    --radius-sm: 4px;
+    --radius-md: 5px;
+    --radius-lg: 6px;
+    --radius-xl: 8px;
+}
+
+/* Réinitialisation et structure commune */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--font-body);
+    background: var(--color-bg);
+    color: var(--color-text);
+}
+
+body.relaxed {
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: var(--space-10);
+}
+
+body.page-grid .container {
+    max-width: 1200px;
+}
+
+body.page-orphans .container {
+    max-width: 800px;
+}
+
+/* En-tête (grille, fiche, notes orphelines) */
+
+.header {
+    background: var(--color-surface);
+    padding: var(--space-10) 0;
+    margin-bottom: var(--space-11);
+    border-bottom: 3px solid var(--color-accent);
+}
+
+.header a {
+    color: var(--color-text-muted);
+    text-decoration: none;
+}
+
+.header h1 {
+    font-size: var(--font-size-xl);
+    color: var(--color-text);
+}
+
+body.page-item .header .container,
+body.page-orphans .header .container {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+}
+
+body.page-orphans .header h1 {
+    font-size: var(--font-size-lg-plus);
+}
+
+body.page-grid .header h1 {
+    font-size: var(--font-size-xxl);
+    color: var(--color-accent);
+    text-align: center;
+}
+
+body.page-grid .header nav {
+    text-align: center;
+    margin-top: var(--space-4);
+}
+
+body.page-grid .header nav a {
+    font-size: var(--font-size-sm-plus);
+}
+
+body.page-grid .header nav a:hover {
+    color: var(--color-accent-light);
+}
+
+/* Badge de type */
+
+.badge {
+    display: inline-block;
+    padding: var(--space-1) var(--space-4);
+    border-radius: var(--radius-xs);
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    background: var(--color-accent);
+    color: var(--color-white);
+}
+
+/* Carte générique (section de contenu sur la fiche et les notes
+   orphelines ; tuile cliquable sur la grille — voir les overrides
+   par page ci-dessous, les deux usages divergent un peu). */
+
+.card {
+    background: var(--color-surface);
+    border-radius: var(--radius-xl);
+    border-left: 4px solid var(--color-accent);
+    padding: var(--space-10);
+    margin-bottom: var(--space-10);
+}
+
+.card h3 {
+    margin-bottom: var(--space-6);
+    color: var(--color-accent);
+}
+
+body.page-grid .card {
+    padding: 0;
+    margin-bottom: 0;
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.15s;
+}
+
+body.page-grid .card:hover {
+    transform: translateY(-3px);
+}
+
+body.page-player .card {
+    margin-top: var(--space-10);
+    margin-bottom: 0;
+}
+
+/* Grille de la bibliothèque */
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: var(--space-10);
+}
+
+.cover {
+    height: 140px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--font-size-cover-icon);
+}
+
+.cover.course { background: var(--color-cover-course); }
+.cover.book { background: var(--color-cover-book); }
+.cover.book_audio { background: var(--color-cover-book-audio); }
+.cover.audiobook { background: var(--color-cover-audiobook); }
+.cover.document { background: var(--color-cover-document); }
+
+.card-body {
+    padding: var(--space-8);
+}
+
+.card-body h2 {
+    font-size: var(--font-size-md-plus);
+    margin-bottom: var(--space-4);
+}
+
+.meta {
+    font-size: var(--font-size-sm-plus);
+    color: var(--color-text-muted);
+}
+
+body.page-grid .badge {
+    margin-bottom: var(--space-3);
+}
+
+/* Fiche d'un item : liste de fichiers */
+
+.file-row {
+    display: flex;
+    justify-content: space-between;
+    padding: var(--space-4) 0;
+    border-bottom: 1px solid var(--color-divider);
+}
+
+.file-row:last-child {
+    border-bottom: none;
+}
+
+.file-row a {
+    color: var(--color-text);
+}
+
+.file-row a:hover {
+    color: var(--color-accent);
+}
+
+.file-meta {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm-plus);
+    white-space: nowrap;
+    margin-left: var(--space-8);
+}
+
+/* Présentation extraite */
+
+.presentation-top {
+    display: flex;
+    gap: var(--space-10);
+    align-items: flex-start;
+    margin-bottom: var(--space-8);
+}
+
+.presentation-top .cover-image {
+    width: 140px;
+    flex-shrink: 0;
+    border-radius: var(--radius-lg);
+}
+
+.facts {
+    flex: 1;
+    min-width: 0;
+}
+
+.fact-row {
+    display: flex;
+    gap: var(--space-5);
+    margin: var(--space-2) 0;
+    font-size: var(--font-size-base-minus);
+}
+
+.fact-row dt {
+    color: var(--color-text-muted);
+    min-width: 9em;
+    flex-shrink: 0;
+}
+
+.fact-row dd a {
+    color: var(--color-accent-light);
+}
+
+.presentation-heading {
+    color: var(--color-accent);
+    margin: var(--space-9) 0 var(--space-3);
+    font-size: var(--font-size-md);
+}
+
+.presentation-text {
+    margin: var(--space-3) 0;
+    font-size: var(--font-size-base);
+}
+
+.presentation-list {
+    margin: var(--space-3) 0;
+    padding-left: 1.3em;
+    font-size: var(--font-size-base);
+}
+
+.presentation-note {
+    border-left: 3px solid var(--color-accent);
+    background: var(--color-note-bg);
+    padding: var(--space-5) var(--space-7);
+    margin: var(--space-5) 0;
+    font-size: var(--font-size-note);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+/* Petits utilitaires partagés */
+
+.hint {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm-plus);
+    margin: var(--space-2) 0;
+}
+
+.btn-mini {
+    background: var(--color-accent);
+    color: var(--color-white);
+    border: none;
+    padding: var(--space-2) var(--space-5);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+}
+
+.btn-mini.reject {
+    background: var(--color-danger);
+}
+
+.btn-mini.secondary {
+    background: var(--color-border);
+}
+
+body.page-orphans .btn-mini {
+    padding: var(--space-3) var(--space-6);
+    font-size: var(--font-size-sm-plus);
+}
+
+details summary {
+    cursor: pointer;
+}
+
+/* Métadonnées de livre : candidats */
+
+.candidate-card {
+    display: flex;
+    gap: var(--space-6);
+    padding: var(--space-5) 0;
+    border-bottom: 1px solid var(--color-divider);
+    align-items: flex-start;
+}
+
+.candidate-card:last-child {
+    border-bottom: none;
+}
+
+.candidate-cover {
+    width: 60px;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+}
+
+.candidate-info {
+    flex: 1;
+    font-size: var(--font-size-base-minus);
+}
+
+.candidate-source {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+    text-transform: uppercase;
+}
+
+.candidate-actions {
+    display: flex;
+    gap: var(--space-4);
+    margin-top: var(--space-3);
+}
+
+.search-form input[type="text"] {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+    padding: var(--space-4);
+    border-radius: var(--radius-sm);
+    width: 100%;
+    max-width: 380px;
+    margin-right: var(--space-4);
+}
+
+.manual-form input {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+    padding: var(--space-3);
+    border-radius: var(--radius-sm);
+    margin: var(--space-2) var(--space-3) var(--space-2) 0;
+    width: 170px;
+}
+
+/* Notes orphelines */
+
+.card .path {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm-plus);
+    margin-bottom: var(--space-5);
+}
+
+.preview {
+    white-space: pre-wrap;
+    font-size: var(--font-size-base-minus);
+    background: var(--color-bg);
+    border-radius: var(--radius-sm);
+    padding: var(--space-5);
+    max-height: 150px;
+    overflow-y: auto;
+    margin-bottom: var(--space-6);
+}
+
+.reattach-form {
+    display: flex;
+    gap: var(--space-4);
+    align-items: center;
+}
+
+select {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+    padding: var(--space-3);
+    border-radius: var(--radius-sm);
+    flex: 1;
+}
+
+/* Lecteur vidéo */
+
+.layout {
+    display: flex;
+    gap: var(--space-10);
+    max-width: 1300px;
+    margin: 0 auto;
+    padding: var(--space-10);
+    align-items: flex-start;
+}
+
+.main {
+    flex: 1;
+    min-width: 0;
+}
+
+a.back {
+    color: var(--color-text-muted);
+    text-decoration: none;
+    display: inline-block;
+    margin-bottom: var(--space-8);
+}
+
+body.page-player h1 {
+    font-size: var(--font-size-lg);
+    margin-bottom: var(--space-8);
+}
+
+video {
+    width: 100%;
+    border-radius: var(--radius-xl);
+    display: block;
+    background: var(--color-black);
+}
+
+.nav-buttons {
+    display: flex;
+    justify-content: space-between;
+    margin-top: var(--space-6);
+}
+
+.nav-buttons a {
+    background: var(--color-surface);
+    color: var(--color-text);
+    text-decoration: none;
+    padding: var(--space-4) var(--space-9);
+    border-radius: var(--radius-md);
+    border-left: 3px solid var(--color-accent);
+}
+
+.nav-buttons a:hover {
+    background: var(--color-divider);
+}
+
+.nav-buttons span.disabled {
+    color: var(--color-text-faint);
+    padding: var(--space-4) var(--space-9);
+}
+
+.playlist {
+    width: 320px;
+    flex-shrink: 0;
+    background: var(--color-surface);
+    border-radius: var(--radius-xl);
+    max-height: 85vh;
+    overflow-y: auto;
+}
+
+.playlist h3 {
+    padding: var(--space-6) var(--space-8) var(--space-3);
+    color: var(--color-accent);
+    font-size: var(--font-size-base-minus);
+}
+
+.playlist a {
+    display: block;
+    padding: var(--space-4) var(--space-8);
+    color: #ccc;
+    text-decoration: none;
+    font-size: var(--font-size-base-minus);
+    border-left: 3px solid transparent;
+}
+
+.playlist a:hover {
+    background: var(--color-divider);
+}
+
+.playlist a.current {
+    background: var(--color-current-bg);
+    border-left-color: var(--color-accent);
+    color: var(--color-white);
+    font-weight: 500;
+}
+
+@media (max-width: 900px) {
+    .layout {
+        flex-direction: column;
+    }
+
+    .playlist {
+        width: 100%;
+        max-height: 40vh;
+    }
+}
+
+/* Bloc-notes (fiche + lecteur) */
+
+.note-card textarea {
+    width: 100%;
+    min-height: 160px;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+    border-radius: var(--radius-sm);
+    padding: var(--space-5);
+    font-family: inherit;
+    font-size: var(--font-size-base);
+    resize: vertical;
+}
+
+.note-markers {
+    list-style: none;
+    margin: var(--space-4) 0 0;
+    padding: 0;
+}
+
+.note-markers li {
+    margin: var(--space-1) 0;
+}
+
+.note-markers a {
+    color: var(--color-accent-light);
+    font-size: var(--font-size-note);
+}
+
+.note-toolbar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-5);
+    margin-top: var(--space-5);
+}
+
+#print-only {
+    display: none;
+}
+
+@media print {
+    body > *:not(#print-only) {
+        display: none !important;
+    }
+
+    #print-only {
+        display: block !important;
+        color: var(--color-black);
+        background: var(--color-white);
+    }
+
+    #print-only .print-date {
+        color: var(--color-text-faint);
+        margin-bottom: 1em;
+    }
+
+    #print-only pre {
+        white-space: pre-wrap;
+        font-family: inherit;
+    }
+}

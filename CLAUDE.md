@@ -67,8 +67,14 @@ mais n'écrit pas de code et ne corrige pas une commande lui-même.
                         test_notes.py — 60 tests pytest
     templates/          course_dashboard, lesson_view, select_course
                         (OfflineU, CSS repris comme point de départ) +
-                        library_grid, item_detail, video_player
-                        (Studia)
+                        _base.html, library_grid, item_detail,
+                        video_player, orphan_notes, _note_widget
+                        (Studia — héritent de _base.html)
+    static/style.css    seule feuille de style de Studia, variables CSS
+                        en haut (couleurs, espacements, rayons, tailles
+                        de police, police)
+    design/             maquettes PNG de Gautier — pas encore de
+                        contenu, rien n'en dépend
 
 ### Modèle de données
 
@@ -218,6 +224,23 @@ prochain chargement de page.
 
 Pas encore fait : sauvegarde de la position de lecture (progress),
 lecteur audio/PDF.
+
+### CSS et gabarits (réorganisation, aucun changement visuel)
+
+Toutes les pages de Studia héritent de templates/_base.html
+(squelette HTML, `<link>` vers static/style.css, blocs title/body_class
+/header/content/scripts) plutôt que de recopier `<html><head>...`
+et leur propre `<style>`. static/style.css est la seule feuille de
+style, avec les couleurs, espacements, rayons et tailles de police en
+variables CSS (`:root`) en haut du fichier.
+
+Certaines pages ont de vraies différences (largeur de `.container`,
+taille du `<h1>` d'en-tête, marge du `.card` sur le lecteur, taille des
+boutons sur la page des notes orphelines) : plutôt que de les fondre en
+une seule règle au risque de changer un peu chacune, chaque `<body>`
+porte une classe (page-grid, page-item, page-player, page-orphans) et
+le fichier CSS a une règle scopée par page pour chaque différence
+réelle — repérable en cherchant "body.page-" dans static/style.css.
 
 ## Objectif suivant
 
