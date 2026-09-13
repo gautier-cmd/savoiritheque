@@ -277,6 +277,93 @@ def group_by_parent(rows):
     return list(grouped.items())
 
 
+def fetch_note(conn, library_path: str):
+    """Note d'un item, identifiée par son chemin de bibliothèque.
+
+    Volontairement pas par item_id : un item supprimé puis recréé par
+    le scanner (dossier disparu puis revenu à l'identique) a le même
+    library_path mais pas forcément le même id. La note s'y retrouve
+    donc automatiquement, sans dépendre de la table items.
+    """
+
+    return conn.execute(
+        "SELECT text, updated_at FROM notes WHERE library_path = ?",
+        (library_path,),
+    ).fetchone()
+
+
+def save_note(conn, library_path: str, text: str) -> str:
+    now = now_iso()
+
+    conn.execute(
+        """
+        INSERT INTO notes(library_path, text, updated_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT(library_path) DO UPDATE SET
+            text = excluded.text,
+            updated_at = excluded.updated_at
+        """,
+        (library_path, text, now),
+    )
+
+    return now
+
+
+def fetch_orphan_notes(conn):
+    """Notes dont le dossier n'existe plus dans la bibliothèque actuelle.
+
+    Arrive quand un item est renommé : le scanner voit un nouveau
+    chemin et un ancien chemin disparu, la note reste attachée à
+    l'ancien.
+    """
+
+    return conn.execute(
+        """
+        SELECT library_path, text, updated_at
+        FROM notes
+        WHERE library_path NOT IN (SELECT library_path FROM items)
+        ORDER BY updated_at DESC
+        """
+    ).fetchall()
+
+
+def reattach_note(conn, source_library_path: str, target_library_path: str) -> None:
+    """Rattache une note orpheline à un autre item existant.
+
+    Si l'item cible a déjà une note, les deux textes sont fusionnés
+    plutôt que d'en écraser un : aucune recopie manuelle, mais rien
+    n'est perdu non plus.
+    """
+
+    source = conn.execute(
+        "SELECT text FROM notes WHERE library_path = ?", (source_library_path,)
+    ).fetchone()
+
+    if source is None:
+        return
+
+    target = conn.execute(
+        "SELECT text FROM notes WHERE library_path = ?", (target_library_path,)
+    ).fetchone()
+
+    now = now_iso()
+
+    if target is None:
+        conn.execute(
+            "UPDATE notes SET library_path = ?, updated_at = ? WHERE library_path = ?",
+            (target_library_path, now, source_library_path),
+        )
+        return
+
+    merged_text = target["text"].rstrip() + "\n\n--- note récupérée ---\n\n" + source["text"]
+
+    conn.execute(
+        "UPDATE notes SET text = ?, updated_at = ? WHERE library_path = ?",
+        (merged_text, now, target_library_path),
+    )
+    conn.execute("DELETE FROM notes WHERE library_path = ?", (source_library_path,))
+
+
 def create_app(library_root: Path, db_path: Path) -> Flask:
     app = Flask(__name__)
     app.config["LIBRARY_ROOT"] = library_root.resolve()
@@ -306,6 +393,7 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
                 ORDER BY i.title
                 """
             ).fetchall()
+            orphan_note_count = len(fetch_orphan_notes(conn))
         finally:
             conn.close()
 
@@ -313,6 +401,7 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
             "library_grid.html",
             items=items,
             format_duration=format_duration,
+            orphan_note_count=orphan_note_count,
         )
 
     @app.route("/item/<int:item_id>")
@@ -387,6 +476,12 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
             finally:
                 conn.close()
 
+        conn = connect_database(app.config["DB_PATH"])
+        try:
+            note = fetch_note(conn, item["library_path"])
+        finally:
+            conn.close()
+
         return render_template(
             "item_detail.html",
             item=item,
@@ -394,8 +489,69 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
             resources=resources,
             presentation=presentation,
             book=book,
+            note_text=note["text"] if note else "",
+            note_updated_at=note["updated_at"] if note else None,
             format_duration=format_duration,
         )
+
+    @app.route("/item/<int:item_id>/note", methods=["POST"])
+    def item_note(item_id: int):
+        conn = connect_database(app.config["DB_PATH"])
+
+        try:
+            item = conn.execute(
+                "SELECT library_path FROM items WHERE id = ?", (item_id,)
+            ).fetchone()
+
+            if item is None:
+                abort(404)
+
+            text = request.form.get("text", "")
+            updated_at = save_note(conn, item["library_path"], text)
+            conn.commit()
+        finally:
+            conn.close()
+
+        return {"updated_at": updated_at}
+
+    @app.route("/notes-orphelines")
+    def orphan_notes():
+        conn = connect_database(app.config["DB_PATH"])
+
+        try:
+            notes = fetch_orphan_notes(conn)
+            items = conn.execute(
+                "SELECT id, title FROM items ORDER BY title"
+            ).fetchall()
+        finally:
+            conn.close()
+
+        return render_template("orphan_notes.html", notes=notes, items=items)
+
+    @app.route("/notes-orphelines/reattach", methods=["POST"])
+    def orphan_notes_reattach():
+        source_library_path = request.form.get("library_path", "")
+        target_item_id = request.form.get("target_item_id", type=int)
+
+        conn = connect_database(app.config["DB_PATH"])
+
+        try:
+            target = (
+                conn.execute(
+                    "SELECT library_path FROM items WHERE id = ?",
+                    (target_item_id,),
+                ).fetchone()
+                if target_item_id is not None
+                else None
+            )
+
+            if target is not None:
+                reattach_note(conn, source_library_path, target["library_path"])
+                conn.commit()
+        finally:
+            conn.close()
+
+        return redirect(url_for("orphan_notes"))
 
     def fetch_book_item_or_404(conn, item_id: int):
         item = conn.execute(
@@ -520,6 +676,15 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
             flat_ids[position + 1] if position + 1 < len(flat_ids) else None
         )
 
+        conn = connect_database(app.config["DB_PATH"])
+        try:
+            note = fetch_note(conn, media["library_path"])
+        finally:
+            conn.close()
+
+        filename = media["relative_path"].rsplit("/", 1)[-1]
+        video_title = filename.rsplit(".", 1)[0]
+
         return render_template(
             "video_player.html",
             media=media,
@@ -527,6 +692,14 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
             current_media_id=media_id,
             prev_id=prev_id,
             next_id=next_id,
+            seek_seconds=request.args.get("t", type=int),
+            note_text=note["text"] if note else "",
+            note_updated_at=note["updated_at"] if note else None,
+            player_context={
+                "number": position + 1,
+                "title": video_title,
+                "media_id": media_id,
+            },
         )
 
     @app.route("/media/<int:media_id>/file")

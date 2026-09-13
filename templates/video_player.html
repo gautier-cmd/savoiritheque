@@ -1,3 +1,4 @@
+{% from "_note_widget.html" import render_note, render_print_block %}
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -119,6 +120,41 @@
                 max-height: 40vh;
             }
         }
+
+        .card {
+            background: #2d2d2d;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            border-left: 4px solid #007acc;
+        }
+
+        .card h3 {
+            margin-bottom: 12px;
+            color: #007acc;
+        }
+
+        .hint {
+            color: #999;
+            font-size: 0.85em;
+            margin: 6px 0;
+        }
+
+        .btn-mini {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            cursor: pointer;
+        }
+
+        .btn-mini.secondary {
+            background: #444;
+        }
+
+        {% include "_note_style.html" %}
     </style>
 </head>
 <body>
@@ -155,6 +191,24 @@
         </div>
     </div>
 
+    <div class="layout" style="padding-top: 0;">
+        <div class="main">
+            {{ render_note(media['item_id'], note_text, note_updated_at, player_context=player_context) }}
+        </div>
+        <div style="width: 320px; flex-shrink: 0;"></div>
+    </div>
+
+    {% if seek_seconds %}
+    <script>
+        (function () {
+            var player = document.getElementById('player');
+            player.addEventListener('loadedmetadata', function () {
+                player.currentTime = {{ seek_seconds }};
+            });
+        })();
+    </script>
+    {% endif %}
+
     {% if next_id %}
     <script>
         document.getElementById('player').addEventListener('ended', function () {
@@ -162,5 +216,7 @@
         });
     </script>
     {% endif %}
+
+    {{ render_print_block(media['item_title']) }}
 </body>
 </html>

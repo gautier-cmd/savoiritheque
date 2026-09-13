@@ -1,0 +1,165 @@
+{% macro render_note(item_id, note_text, note_updated_at, player_context=None) %}
+<div class="card note-card" id="notes">
+    <h3>Notes</h3>
+
+    <div id="local-restore-banner"></div>
+
+    <textarea id="note-text" placeholder="Vos notes sur cette formation…">{{ note_text }}</textarea>
+
+    <ul id="note-markers" class="note-markers"></ul>
+
+    <div class="note-toolbar">
+        <span id="note-saved-indicator" class="hint"></span>
+        <span style="flex: 1;"></span>
+        {% if player_context %}
+        <button type="button" class="btn-mini" id="insert-marker">Insérer un repère</button>
+        {% endif %}
+        <button type="button" class="btn-mini secondary" onclick="window.print()">Imprimer</button>
+    </div>
+</div>
+
+<script>
+(function () {
+    var itemId = {{ item_id | tojson }};
+    var textarea = document.getElementById('note-text');
+    var indicator = document.getElementById('note-saved-indicator');
+    var storageKey = 'studia-note-' + itemId;
+    var saveTimer = null;
+    var serverUpdatedAtMs = (function () {
+        var iso = {{ note_updated_at | tojson }};
+        return iso ? new Date(iso).getTime() : 0;
+    })();
+
+    function formatTime(date) {
+        return date.toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'});
+    }
+
+    function renderMarkers() {
+        var list = document.getElementById('note-markers');
+        list.innerHTML = '';
+        var re = /^(.*)\((\/watch\/\d+\?t=\d+)\)\s*$/gm;
+        var match;
+        while ((match = re.exec(textarea.value)) !== null) {
+            var li = document.createElement('li');
+            var a = document.createElement('a');
+            a.href = match[2];
+            a.textContent = match[1].trim();
+            li.appendChild(a);
+            list.appendChild(li);
+        }
+    }
+
+    function saveToLocal() {
+        try {
+            localStorage.setItem(storageKey, JSON.stringify({
+                text: textarea.value,
+                savedAt: Date.now()
+            }));
+        } catch (e) {
+            /* stockage local indisponible (navigation privee...) : tant pis, l'enregistrement serveur reste actif */
+        }
+    }
+
+    function saveToServer(useBeacon) {
+        var body = new URLSearchParams({text: textarea.value});
+
+        if (useBeacon && navigator.sendBeacon) {
+            navigator.sendBeacon(
+                '/item/' + itemId + '/note',
+                new Blob([body.toString()], {type: 'application/x-www-form-urlencoded'})
+            );
+            return;
+        }
+
+        fetch('/item/' + itemId + '/note', {method: 'POST', body: body})
+            .then(function (response) { return response.json(); })
+            .then(function () {
+                indicator.textContent = 'Enregistré à ' + formatTime(new Date());
+            })
+            .catch(function () {
+                indicator.textContent = 'Non enregistré — connexion perdue';
+            });
+    }
+
+    textarea.addEventListener('input', function () {
+        saveToLocal();
+        renderMarkers();
+        indicator.textContent = 'Frappe en cours…';
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(function () { saveToServer(false); }, 900);
+    });
+
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'hidden') {
+            saveToServer(true);
+        }
+    });
+
+    window.addEventListener('beforeprint', function () {
+        document.getElementById('print-note-text').textContent = textarea.value;
+        document.querySelector('#print-only .print-date').textContent =
+            new Date().toLocaleDateString('fr-FR');
+    });
+
+    renderMarkers();
+
+    // Filet local : si une frappe n'est jamais parvenue au serveur
+    // (crash juste avant l'envoi differe), on la retrouve ici.
+    try {
+        var local = JSON.parse(localStorage.getItem(storageKey) || 'null');
+        if (local && local.savedAt > serverUpdatedAtMs && local.text !== textarea.value) {
+            var banner = document.getElementById('local-restore-banner');
+            var message = document.createElement('div');
+            message.className = 'hint';
+            message.style.marginBottom = '8px';
+            message.textContent = 'Une version plus récente de cette note, jamais enregistrée, a été retrouvée dans ce navigateur. ';
+
+            var restoreButton = document.createElement('button');
+            restoreButton.type = 'button';
+            restoreButton.className = 'btn-mini';
+            restoreButton.textContent = 'Restaurer';
+            restoreButton.addEventListener('click', function () {
+                textarea.value = local.text;
+                banner.innerHTML = '';
+                renderMarkers();
+                saveToServer(false);
+            });
+
+            message.appendChild(restoreButton);
+            banner.appendChild(message);
+        }
+    } catch (e) {
+        /* stockage local illisible : on ignore, rien a restaurer */
+    }
+
+    {% if player_context %}
+    document.getElementById('insert-marker').addEventListener('click', function () {
+        var player = document.getElementById('player');
+        var seconds = Math.floor(player.currentTime);
+        var minutes = Math.floor(seconds / 60);
+        var remaining = String(seconds % 60).padStart(2, '0');
+        var timestamp = minutes + ':' + remaining;
+        var marker = 'Vidéo {{ player_context.number }} — {{ player_context.title }} — '
+            + timestamp + ' (/watch/{{ player_context.media_id }}?t=' + seconds + ')\n';
+
+        var position = textarea.selectionStart;
+        if (typeof position !== 'number') {
+            position = textarea.value.length;
+        }
+
+        textarea.value = textarea.value.slice(0, position) + marker + textarea.value.slice(position);
+        textarea.dispatchEvent(new Event('input'));
+    });
+    {% endif %}
+})();
+</script>
+{% endmacro %}
+
+
+{% macro render_print_block(item_title) %}
+<div id="print-only">
+    <h1>{{ item_title }}</h1>
+    <p class="print-date"></p>
+    <pre id="print-note-text"></pre>
+</div>
+{% endmacro %}

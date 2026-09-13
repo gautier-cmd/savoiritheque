@@ -187,7 +187,8 @@ def test_chapitre_racine_non_consecutif_reste_un_seul_groupe(
     assert response.status_code == 200
     # Un seul groupe "Racine", pas un par plage consecutive de fichiers.
     assert data.count(">Racine<") == 1
-    assert data.count("<h3>") == 2
+    # 2 chapitres + la carte Notes, toujours presente sur la fiche.
+    assert data.count("<h3>") == 3
     # A l'interieur du groupe, l'ordre sort_order des deux fichiers de
     # racine est respecte malgre le sous-dossier intercale entre eux.
     assert data.index("Root A") < data.index("Root C")
@@ -243,6 +244,35 @@ def test_fiche_affiche_la_presentation_avec_nos_propres_moyens(client) -> None:
     assert "000 - presentation.html" not in data
 
 
+def test_lecteur_video_reprend_a_la_position_donnee(client) -> None:
+    # Le fragment d'URL #t= n'est pas fiable pour positionner un
+    # <video> local : la reprise se fait via un script sur
+    # loadedmetadata, jamais via le fragment dans l'attribut src.
+    media_id = media_id_by_relative_path(
+        client, "01 - Bases/001 - Interface.mp4"
+    )
+
+    response = client.get(f"/watch/{media_id}?t=238")
+    data = response.data.decode()
+
+    assert response.status_code == 200
+    assert "loadedmetadata" in data
+    assert "player.currentTime = 238" in data
+    assert "#t=" not in data
+
+
+def test_lecteur_video_sans_position_ne_cherche_pas_a_reprendre(client) -> None:
+    media_id = media_id_by_relative_path(
+        client, "01 - Bases/001 - Interface.mp4"
+    )
+
+    response = client.get(f"/watch/{media_id}")
+    data = response.data.decode()
+
+    assert response.status_code == 200
+    assert "loadedmetadata" not in data
+
+
 def test_lecteur_video_affiche_precedent_et_suivant(client) -> None:
     prev_id = media_id_by_relative_path(
         client, "01 - Bases/001 - Interface.mp4"
@@ -288,8 +318,9 @@ def test_lecteur_video_derniere_video_sans_suivant(client) -> None:
 
     assert response.status_code == 200
     assert '<span class="disabled">Suivant →</span>' in data
-    # Pas de video suivante : pas de script d'enchainement automatique.
-    assert "addEventListener" not in data
+    # Pas de video suivante : pas de script d'enchainement automatique
+    # sur la fin de la vidéo (le bloc-notes a son propre JS, sans rapport).
+    assert "addEventListener('ended'" not in data
 
 
 # --------------------------------------------------------------------

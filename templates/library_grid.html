@@ -37,6 +37,21 @@
             font-size: 2.5em;
         }
 
+        .header nav {
+            text-align: center;
+            margin-top: 8px;
+        }
+
+        .header nav a {
+            color: #999;
+            font-size: 0.85em;
+            text-decoration: none;
+        }
+
+        .header nav a:hover {
+            color: #4aa3ff;
+        }
+
         .grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -101,6 +116,11 @@
     <div class="header">
         <div class="container">
             <h1>Studia</h1>
+            {% if orphan_note_count %}
+            <nav>
+                <a href="{{ url_for('orphan_notes') }}">Notes sans formation ({{ orphan_note_count }})</a>
+            </nav>
+            {% endif %}
         </div>
     </div>
 

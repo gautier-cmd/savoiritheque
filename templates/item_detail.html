@@ -1,3 +1,4 @@
+{% from "_note_widget.html" import render_note, render_print_block %}
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -240,6 +241,8 @@
         details summary {
             cursor: pointer;
         }
+
+        {% include "_note_style.html" %}
     </style>
 </head>
 <body>
@@ -419,6 +422,10 @@
             {% endfor %}
         </div>
         {% endif %}
+
+        {{ render_note(item['id'], note_text, note_updated_at) }}
     </div>
+
+    {{ render_print_block(item['title']) }}
 </body>
 </html>

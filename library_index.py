@@ -20,7 +20,7 @@ from offlineu_core import (
     SUBTITLE_EXTENSIONS,
 )
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 PROBE_TIMEOUT_SECONDS = 60
 PROBE_COMMIT_EVERY = 50
@@ -160,6 +160,12 @@ def create_schema(conn: sqlite3.Connection) -> None:
             decided_at TEXT,
             UNIQUE(item_id, source, source_id),
             FOREIGN KEY(item_id) REFERENCES items(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS notes (
+            library_path TEXT PRIMARY KEY,
+            text TEXT NOT NULL DEFAULT '',
+            updated_at TEXT NOT NULL
         );
         """
     )

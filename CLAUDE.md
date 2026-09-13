@@ -63,8 +63,8 @@ mais n'écrit pas de code et ne corrige pas une commande lui-même.
     book_metadata.py    recherche de métadonnées de livres sur Google
                         Books et Open Library, détection d'ISBN
     tests/              test_library_index.py, test_studia.py,
-                        test_presentation.py, test_book_metadata.py —
-                        51 tests pytest
+                        test_presentation.py, test_book_metadata.py,
+                        test_notes.py — 60 tests pytest
     templates/          course_dashboard, lesson_view, select_course
                         (OfflineU, CSS repris comme point de départ) +
                         library_grid, item_detail, video_player
@@ -75,9 +75,9 @@ mais n'écrit pas de code et ne corrige pas une commande lui-même.
 Item (un dossier de premier niveau) contient des Media et des Resources.
 Le concept Lesson d'OfflineU est abandonné.
 
-Tables SQLite, schéma version 3 :
+Tables SQLite, schéma version 4 :
 schema_info, users, items, media, resources, progress, book_search,
-book_candidates.
+book_candidates, notes.
 
     media       item_id, relative_path, parent_path, sort_order,
                 media_type, extension, size_bytes,
@@ -96,6 +96,17 @@ book_candidates.
 book_search et book_candidates ne sont jamais touchées par scan_library :
 un rescan ne peut donc pas défaire une métadonnée validée ni faire
 réapparaître un candidat rejeté.
+
+    notes   library_path (clé), text, updated_at — pas de clé
+            étrangère du tout vers items
+
+notes est rattachée au chemin de bibliothèque, pas à item_id, et le
+scanner n'est pas modifié : quand un dossier disparaît, scan_library
+supprime l'item comme avant, la note reste simplement en base, non
+liée à rien. Si le même chemin revient, elle se retrouve automatiquement.
+Si le dossier a été renommé (chemin différent), la note devient
+orpheline — visible et récupérable sur /notes-orphelines (voir
+"Bloc-notes" ci-dessous), jamais perdue.
 
 parent_path est le sous-dossier du fichier, vide à la racine : c'est ce
 qui représente les chapitres. sort_order est le rang dans l'item, calculé
@@ -147,6 +158,10 @@ par tri naturel (10 après 9).
     POST /item/<id>/book-candidate/<id>/unreject        annule un rejet
     POST /item/<id>/book-manual                         saisie manuelle
 
+    POST /item/<id>/note                    enregistre la note (JSON)
+    GET  /notes-orphelines                  notes dont le dossier a disparu
+    POST /notes-orphelines/reattach         rattache une note à un autre item
+
 Chaque page de présentation a sa propre mise en page HTML (tableau, ou
 lignes en div avec couverture) selon l'item : presentation.py ne dépend
 d'aucune des deux en particulier, il repère les libellés de fiche
@@ -173,8 +188,36 @@ Cette tranche couvre les livres. Les formations restent couvertes par
 la page de présentation locale (ci-dessus) : les deux mécanismes
 coexistent, aucun n'est un repli pour l'autre.
 
-Pas encore fait : sauvegarde de la position de lecture, lecteur
-audio/PDF.
+### Bloc-notes (une note par item)
+
+Un seul champ texte par item, affiché à deux endroits qui pointent
+vers la même donnée : en bas de la fiche (/item/<id>, pour tous les
+types) et en bas du lecteur vidéo (/watch/<media_id>, pour les
+courses). Modifier la note d'un côté la met à jour de l'autre au
+prochain chargement de page.
+
+- Enregistrement automatique après une pause de frappe (900 ms), et
+  immédiatement si l'onglet est masqué ou fermé (navigator.sendBeacon,
+  pensé pour aboutir même pendant un déchargement de page). Un filet
+  local (localStorage) garde aussi chaque frappe : si une version plus
+  récente que celle du serveur est retrouvée au chargement (crash juste
+  avant l'envoi différé), la page propose de la restaurer.
+- Le bouton "Insérer un repère" (uniquement sur le lecteur) écrit une
+  ligne texte au format "Vidéo N — titre — mm:ss (/watch/id?t=secondes)"
+  à la position du curseur. Ces lignes sont aussi détectées par une
+  expression régulière côté navigateur et affichées comme une petite
+  liste cliquable au-dessus du champ — pas de zone de texte enrichi,
+  juste un motif reconnu dans le texte brut.
+- La reprise de position (?t=secondes) se fait par script sur
+  l'évènement loadedmetadata du lecteur, pas par le fragment d'URL
+  #t=secondes : ce fragment (pourtant standard, "Media Fragments URI")
+  s'est révélé peu fiable ici pour positionner une vidéo servie
+  localement — vérifié en pratique, currentTime restait à 0.
+- Bouton Imprimer : une feuille de style @media print masque tout sauf
+  le titre de l'item, la date du jour et le texte de la note.
+
+Pas encore fait : sauvegarde de la position de lecture (progress),
+lecteur audio/PDF.
 
 ## Objectif suivant
 
@@ -196,7 +239,9 @@ position pour EPUB.
 ## Backlog (ne pas traiter sans demande explicite)
 
 - Fichier renommé = nouvel id = progression perdue. Appariement par
-  empreinte à prévoir.
+  empreinte à prévoir. (Ne concerne plus les notes : elles survivent à
+  un renommage de dossier en devenant orphelines et récupérables, voir
+  "Bloc-notes" — reste vrai pour la progression de lecture par média.)
 - Le compteur « sans durée » du résumé compte aussi les PDF, qui n'en ont
   pas. Affichage à corriger.
 - Chapitres internes des M4B (ffprobe -show_chapters), distincts des
