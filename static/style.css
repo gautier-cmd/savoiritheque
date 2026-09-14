@@ -301,8 +301,11 @@ body.page-grid .header nav a:hover {
 }
 
 .btn-primary.disabled {
-    opacity: 0.5;
-    cursor: default;
+    background: transparent;
+    border: 1px solid var(--color-border);
+    color: var(--color-text-secondary);
+    opacity: 1;
+    cursor: not-allowed;
 }
 
 .btn-secondary {

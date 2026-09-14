@@ -56,13 +56,16 @@
             <div class="hero-actions">
                 {% if first_video_id %}
                 <a class="btn-primary" href="{{ url_for('watch_video', media_id=first_video_id) }}">▶ Regarder</a>
-                {% elif item['item_type'] in ('book', 'book_audio', 'audiobook') %}
-                <span class="btn-primary disabled" aria-disabled="true" title="Lecteur pas encore disponible">Lire</span>
-                {% endif %}
                 {% if resources %}
                 <button type="button" class="btn-secondary" data-tab-target="ressources">Voir les ressources</button>
                 {% endif %}
+                {% elif resources %}
+                <button type="button" class="btn-primary" data-tab-target="ressources">Voir les ressources</button>
+                {% endif %}
             </div>
+            {% if not first_video_id and item['item_type'] in ('book', 'book_audio', 'audiobook') %}
+            <p class="hint">Ce format ne peut pas encore être lu dans l'application.</p>
+            {% endif %}
         </div>
     </div>
 
