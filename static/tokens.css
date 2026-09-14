@@ -1,0 +1,152 @@
+/* Studia — design tokens (tranche 1)
+   ===================================
+
+   Seul endroit où ces valeurs sont déclarées. Aucun composant ne doit
+   redéfinir une couleur, une taille, un espacement, un rayon, une
+   transition ou un point de rupture ailleurs que dans ce fichier
+   (design/specification.md, section 51).
+
+   Ce fichier ne restyle rien à lui seul : il est chargé avant
+   static/style.css, qui redéclare encore ses propres variables
+   (ancienne palette bleue) et l'emporte donc pour l'instant sur les
+   noms qu'ils ont en commun. Rien ne change visuellement tant que la
+   tranche 2 (layout) ne consomme pas ces tokens à la place des
+   anciens. Les noms déjà utilisés par style.css seront basculés vers
+   ce fichier tranche après tranche, pas d'un coup.
+*/
+
+/* ---------------------------------------------------------------
+   Police — Inter, hébergée dans le projet (static/fonts/), aucun
+   appel à Google Fonts : l'application doit fonctionner hors ligne.
+
+   Les deux fichiers sont des variable fonts (axes optical-size et
+   weight) : un seul @font-face par style avec une plage de graisse
+   (font-weight: 100 900) suffit, pas besoin d'un fichier par graisse
+   ni de font-variation-settings pour le poids. font-optical-sizing
+   laisse le navigateur ajuster l'axe opsz selon la taille affichée.
+   --------------------------------------------------------------- */
+
+@font-face {
+    font-family: 'Inter';
+    src: url('fonts/Inter-VariableFont_opsz,wght.ttf') format('truetype-variations'),
+         url('fonts/Inter-VariableFont_opsz,wght.ttf') format('truetype');
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Inter';
+    src: url('fonts/Inter-Italic-VariableFont_opsz,wght.ttf') format('truetype-variations'),
+         url('fonts/Inter-Italic-VariableFont_opsz,wght.ttf') format('truetype');
+    font-weight: 100 900;
+    font-style: italic;
+    font-display: swap;
+}
+
+:root {
+    /* -----------------------------------------------------------
+       Couleurs — palette officielle (specification.md, section 4).
+       Recopiées telles quelles, aucune n'a été ré-estimée à l'oeil.
+       ----------------------------------------------------------- */
+    --color-bg: #081015;              /* fond principal */
+    --color-bg-sidebar: #0C141A;      /* fond sidebar */
+    --color-surface: #101920;         /* surface principale (cartes, panneaux) */
+    --color-surface-2: #121D24;       /* surface secondaire (surélévation au-dessus de surface) */
+    --color-text: #F2F4F5;            /* texte principal */
+    --color-text-secondary: #B8C0C5;  /* texte secondaire */
+    --color-text-tertiary: #87929A;   /* texte tertiaire */
+    --color-accent: #FF6847;          /* accent principal — réservé : CTA, progression,
+                                          sélection, état actif, focus, élément courant,
+                                          timestamps, logo. Jamais un fond dominant. */
+    --color-accent-dark: #D95A3C;     /* accent sombre */
+    --color-border: #26323A;          /* bordure discrète */
+    --color-progress-track: #29343B;  /* piste de progression inactive */
+
+    /* -----------------------------------------------------------
+       Typographie
+       ----------------------------------------------------------- */
+    --font-family-base: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+    /* Échelle (section 6.2) : le corps de texte est la référence 1,
+       soit 1rem (16px navigateur par défaut). Chaque rôle a une plage
+       dans la spec ; la valeur ci-dessous est le point choisi dans
+       cette plage, alignée sur des tailles entières en pixels pour
+       rester nette à l'écran. */
+    --font-size-annotation: 0.8125rem;     /* 13px — plage 0,8–0,9 */
+    --font-size-metadata: 0.875rem;        /* 14px — plage 0,85–0,9 */
+    --font-size-nav: 0.9375rem;            /* 15px — plage 0,9–1 */
+    --font-size-body: 1rem;                /* 16px — référence */
+    --font-size-card-title: 1.0625rem;     /* 17px — plage 1,05–1,15 */
+    --font-size-section-title: 1.5rem;     /* 24px — plage 1,45–1,65 */
+    --font-size-page-title: 2rem;          /* 32px — plage 1,8–2,2 */
+    --font-size-content-title: 2.25rem;    /* 36px — jusqu'à 2,3 */
+
+    /* Graisses (section 6.3). Là où la spec donne un choix
+       (Medium/Semibold, Semibold/Bold), la valeur la plus marquée est
+       retenue pour des titres nets sur fond sombre. */
+    --font-weight-regular: 400;   /* corps, métadonnées */
+    --font-weight-medium: 500;    /* navigation */
+    --font-weight-semibold: 600;  /* titre de carte, titre de section */
+    --font-weight-bold: 700;      /* titre de page */
+
+    /* Interlignage (section 6.4), point choisi dans chaque plage. */
+    --line-height-heading: 1.2;    /* plage 1,15–1,25 */
+    --line-height-body: 1.5;       /* plage 1,45–1,6 */
+    --line-height-metadata: 1.35;  /* plage 1,3–1,4 */
+
+    /* -----------------------------------------------------------
+       Espacements — aucune échelle n'est imposée par la spec
+       (section 51 demande seulement qu'ils soient centralisés).
+       Grille de 4px, nommée par sa valeur en pixels.
+       ----------------------------------------------------------- */
+    --space-4: 4px;
+    --space-8: 8px;
+    --space-12: 12px;
+    --space-16: 16px;
+    --space-20: 20px;
+    --space-24: 24px;
+    --space-32: 32px;
+    --space-40: 40px;
+    --space-48: 48px;
+    --space-64: 64px;
+
+    /* -----------------------------------------------------------
+       Rayons — la spec demande une famille cohérente sans "bubble
+       UI" (section 45) sans donner de valeurs. Trois paliers plus un
+       rayon plein pour les pastilles/avatars.
+       ----------------------------------------------------------- */
+    --radius-sm: 6px;    /* petits éléments : badges, chips */
+    --radius-md: 10px;   /* contrôles : boutons, champs */
+    --radius-lg: 16px;   /* cartes, panneaux */
+    --radius-full: 999px; /* pastilles, avatar */
+
+    /* -----------------------------------------------------------
+       Transitions — aucune valeur dans la spec. Choix sobres par
+       défaut, À AJUSTER une fois les interactions réelles en place :
+       rien n'a été mesuré ni validé à l'écran.
+       ----------------------------------------------------------- */
+    --transition-fast: 120ms ease;   /* survol, changement d'état bref */
+    --transition-base: 180ms ease;   /* transitions générales */
+    --transition-slow: 280ms ease;   /* ouverture/fermeture de panneaux */
+
+    /* -----------------------------------------------------------
+       Points de rupture — voir le raisonnement complet dans
+       CLAUDE.md ("Design tokens (tranche 1)"). Résumé : dérivés du
+       nombre de colonnes visé par palier (4/3/2/1, section 13) et
+       d'une largeur de carte minimale choisie ici (260px), pas de
+       valeurs arbitraires.
+
+       ATTENTION : le CSS ne permet pas d'utiliser une variable dans
+       une condition @media. Ces tokens documentent et justifient les
+       valeurs, mais les règles @media doivent répéter les mêmes
+       nombres en dur — à garder synchronisés à la main.
+       ----------------------------------------------------------- */
+    --card-min-width: 260px;   /* largeur minimale confortable : vignette 16:9 +
+                                   2 lignes de titre + une ligne de métadonnées */
+    --grid-gap: var(--space-24);
+
+    --breakpoint-tablet: 720px;         /* 2 colonnes deviennent confortables */
+    --breakpoint-desktop: 1120px;       /* 3 colonnes deviennent confortables */
+    --breakpoint-desktop-large: 1440px; /* 4 colonnes deviennent confortables */
+}

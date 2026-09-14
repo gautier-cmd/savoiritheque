@@ -70,11 +70,19 @@ mais n'écrit pas de code et ne corrige pas une commande lui-même.
                         _base.html, library_grid, item_detail,
                         video_player, orphan_notes, _note_widget
                         (Studia — héritent de _base.html)
-    static/style.css    seule feuille de style de Studia, variables CSS
-                        en haut (couleurs, espacements, rayons, tailles
-                        de police, police)
-    design/             maquettes PNG de Gautier — pas encore de
-                        contenu, rien n'en dépend
+    static/style.css    feuille de style actuelle de Studia (ancienne
+                        palette bleue), toujours ce qui s'affiche
+                        aujourd'hui — remplacée progressivement par
+                        tokens.css au fil des tranches de la refonte
+    static/tokens.css   tokens de la refonte visuelle (voir plus bas) —
+                        chargé avant style.css, qui l'emporte encore
+                        sur les noms en commun : rien ne s'affiche
+                        encore avec ces valeurs
+    static/fonts/       Inter, deux variable fonts (romain, italique),
+                        déposées par Gautier — jamais Google Fonts
+    design/             specification.md (spec de la refonte, source de
+                        vérité — voir ci-dessous), 3 maquettes PNG,
+                        2 logos (LOGO.png, LOGO-Picto.png)
 
 ### Modèle de données
 
@@ -242,6 +250,115 @@ porte une classe (page-grid, page-item, page-player, page-orphans) et
 le fichier CSS a une règle scopée par page pour chaque différence
 réelle — repérable en cherchant "body.page-" dans static/style.css.
 
+## Refonte visuelle
+
+Source de vérité : `design/specification.md`. En cas de doute sur une
+question de design, la relire plutôt que deviner. Deux écarts assumés
+par rapport à ce document :
+
+- Section 34 (notes individuelles avec timestamp, éditer/supprimer)
+  est obsolète — on garde une seule note Markdown par formation (voir
+  "Bloc-notes" ci-dessus et "Format des notes" ci-dessous).
+- Les breakpoints (section 8) ne sont pas dans la spec : dérivés
+  ci-dessous, voir "Tranche 1".
+
+### Contraintes absolues de la refonte
+
+- **Logos** : utiliser `design/LOGO.png` et `design/LOGO-Picto.png` tels
+  quels. Ne jamais les redessiner, ni les recréer en CSS ou en SVG
+  inline. Le wordmark a "Stud" en blanc : si un fond clair apparaît
+  quelque part sous le logo, le signaler à Gautier plutôt que modifier
+  le fichier.
+- **Aucune donnée fictive.** Ce qui existe réellement en base : titre
+  (= nom de dossier), item_type, médias (chemin/type/extension/taille/
+  durée), ressources, chapitres (parent_path/sort_order), notes,
+  progression. Les maquettes montrent en plus : couvertures,
+  formateurs, année, tags, descriptions, libellés de chapitres
+  nettoyés, pourcentages de progression, favoris, notifications, avatar,
+  compteurs par type — rien de tout ça n'existe aujourd'hui. Si une
+  donnée manque, appliquer l'état vide prévu par la spec (section 49)
+  ou retirer l'élément, jamais la remplir avec un exemple ou un chiffre
+  inventé.
+- **Libellés de chapitre.** Les vrais dossiers s'appellent
+  "0100 - Introduction au Motion Design", pas "01 - ...". Nettoyage à
+  l'affichage uniquement (ex. retirer le préfixe numérique technique,
+  reformater) — ne jamais renommer les dossiers ou fichiers réels
+  (interdit n°3).
+- **Pas de compte utilisateur en V1.** Favoris, cloche de notifications,
+  avatar : retirés des écrans plutôt que simulés, jusqu'à un vrai compte
+  (V2, déjà au backlog).
+- **Polices hors-ligne.** Inter est servie depuis `static/fonts/`
+  (@font-face), jamais depuis Google Fonts — l'appli doit fonctionner
+  sans connexion internet.
+
+### Format des notes
+
+Markdown, stocké brut (colonne `notes.text` inchangée). V1 : champ
+texte simple (pas d'éditeur visuel) avec une barre d'outils qui insère
+la syntaxe — gras, italique, titres 1 à 3, liste, bloc de code, plus le
+bouton "Insérer un repère" déjà en place — et une bascule aperçu qui
+rend le Markdown. Pas de bouton souligné : ça n'existe pas en Markdown
+standard, et pas de HTML dans les notes. Les repères horodatés restent
+cliquables dans l'aperçu et à l'impression.
+
+V2 (backlog) : éditeur enrichi (le gras et les titres s'affichent
+directement), toujours sur le même Markdown stocké — le stockage brut
+dès la V1 est justement ce qui permet ce changement plus tard sans nouvelle
+migration.
+
+### Ordre de travail (une tranche à la fois, arrêt entre chaque)
+
+1. Design tokens — fait, voir ci-dessous.
+2. Layout global et sidebar.
+3. Extraction des couvertures (PDF, M4B, vidéo), cache hors bibliothèque,
+   jamais écrites dedans ; placeholder par type sinon.
+4. Écran Bibliothèque : recherche, filtres, grille, cartes.
+5. Responsive.
+6. Fiche de contenu.
+7. Lecteur vidéo et programme.
+8. Notes.
+9. États vides et erreurs.
+
+### Tranche 1 — design tokens (fait)
+
+`static/tokens.css`, chargé avant `static/style.css` dans
+`templates/_base.html`. Couleurs : palette officielle de la spec
+(section 4), recopiée sans ré-estimation. Typographie : Inter en
+`@font-face` (variable font, une seule plage de graisse 100–900 par
+style plutôt qu'un fichier par graisse), échelle et graisses de la
+section 6 avec le point choisi dans chaque plage documenté en
+commentaire. Espacements et rayons : aucune valeur n'est imposée par la
+spec (elle demande seulement qu'ils soient centralisés) — échelle de 4px
+et trois rayons choisis, à ajuster librement. Transitions : valeurs
+sobres par défaut, marquées "à ajuster" dans le fichier — rien à cet
+égard dans la spec.
+
+**Breakpoints**, dérivés (spec section 8 : pas de valeurs arbitraires,
+doivent venir du moment où le contenu se comprime) — raisonnement :
+largeur minimale de carte choisie à 260px (vignette 16:9 + 2 lignes de
+titre + une ligne de métadonnées, section 13/14), espacement de grille
+24px, empreinte de sidebar estimée à chaque palier (240px complète,
+200px réduite, 72px icônes seules, 0 en drawer), plus le remplissage de
+page. Seuil = empreinte sidebar + remplissage + N×260 + (N-1)×24,
+arrondi :
+
+    720px   -> 2 colonnes devient confortable (tablette)
+    1120px  -> 3 colonnes devient confortable (desktop intermédiaire)
+    1440px  -> 4 colonnes devient confortable (desktop large)
+
+Le CSS ne permet pas d'utiliser une variable dans une condition
+`@media` : ces tokens documentent et justifient les valeurs, mais les
+futures règles `@media` devront répéter ces mêmes nombres en dur — à
+garder synchronisés à la main si on retouche le raisonnement.
+
+Rien n'est encore appliqué : `tokens.css` définit de nouveaux noms (non
+consommés) et redéfinit certains noms déjà utilisés par `style.css`
+(ex. `--color-accent`), qui l'emporte encore pour l'instant car chargé
+après — vérifié dans le navigateur, page actuelle inchangée au pixel
+près. La tranche 2 commencera à faire basculer `style.css` vers ces
+tokens, au fur et à mesure de la reconstruction du layout — pas d'un
+coup.
+
 ## Objectif suivant
 
 Une application web locale mono-utilisateur lisant SQLite :
@@ -294,7 +411,12 @@ position pour EPUB.
 - requirements-dev.txt pour pytest.
 - Clé SSH GitHub à la place du token en clair dans ~/.git-credentials.
 - Watcher automatique — seulement après un scanner manuel fiable.
-- Multi-utilisateur réel, authentification, rôles, HTTPS : V2.
+- Multi-utilisateur réel, authentification, rôles, HTTPS : V2 — dont
+  dépendent aussi favoris, notifications et avatar (retirés des écrans
+  en V1, voir "Refonte visuelle").
+- Éditeur de notes enrichi (le Markdown s'affiche mis en forme au lieu
+  d'être tapé) : V2. Le stockage reste le même Markdown brut, posé dès
+  la V1 pour ne rien casser au passage.
 
 ## Méthode de travail
 
