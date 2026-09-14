@@ -84,6 +84,59 @@ def test_bloc_ne_contenant_que_des_liens_est_filtre() -> None:
     assert not any("Télécharger" in t for t in textes)
 
 
+def test_table_des_matieres_est_coupee() -> None:
+    html = """
+    <html><body>
+    <h1>Titre</h1>
+    <h2>Sujet</h2>
+    <p>Un paragraphe de présentation.</p>
+    <h2>Table des matières</h2>
+    <h3>Chapitre 1</h3>
+    <ul><li>Leçon 1</li><li>Leçon 2</li></ul>
+    <h3>Chapitre 2</h3>
+    <ul><li>Leçon 3</li></ul>
+    </body></html>
+    """
+
+    result = parse_presentation(html)
+
+    assert result["blocks"] == [
+        {"type": "heading", "text": "Sujet"},
+        {"type": "paragraph", "text": "Un paragraphe de présentation."},
+    ]
+
+
+def test_titre_avec_chapitres_est_coupe_meme_sans_dire_sommaire() -> None:
+    # Motion Design titre sa liste "Les vingt-sept chapitres", pas
+    # "Table des matières" : le mot-clé "chapitre" doit suffire.
+    html = """
+    <html><body>
+    <h1>Titre</h1>
+    <h2>Sujet</h2>
+    <p>Description.</p>
+    <h2>Les vingt-sept chapitres</h2>
+    <ul><li>0100 - Introduction</li></ul>
+    <p class="duree">Note finale.</p>
+    </body></html>
+    """
+
+    result = parse_presentation(html)
+
+    assert result["blocks"] == [
+        {"type": "heading", "text": "Sujet"},
+        {"type": "paragraph", "text": "Description."},
+    ]
+
+
+def test_une_liste_sans_titre_de_sommaire_nest_pas_touchee() -> None:
+    # Le filtrage cible un titre precis, pas "toute liste" : un
+    # contenu qui enumere sans parler de chapitres/sommaire reste tel quel.
+    result = parse_presentation(TABLE_STYLE_HTML)
+
+    types = [b["type"] for b in result["blocks"]]
+    assert "list" in types
+
+
 def test_bloc_avec_texte_et_lien_est_conserve_comme_note() -> None:
     html = """
     <html><body>

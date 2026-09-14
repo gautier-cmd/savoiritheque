@@ -9,7 +9,7 @@
 {% block header %}
 <div class="header">
     <div class="container">
-        <h1>Studia</h1>
+        <img class="logo-full" src="{{ url_for('static', filename='images/logo.png') }}" alt="Studia">
         {% if orphan_note_count %}
         <nav>
             <a href="{{ url_for('orphan_notes') }}">Notes sans formation ({{ orphan_note_count }})</a>
@@ -33,7 +33,7 @@
                 {% else %}📄{% endif %}
             </div>
             <div class="card-body">
-                <span class="badge">{{ item['item_type'] }}</span>
+                <span class="badge">{{ badge_label(item['item_type']) }}</span>
                 <h2>{{ item['title'] }}</h2>
                 <div class="meta">
                     {{ item['media_count'] }} média(s)

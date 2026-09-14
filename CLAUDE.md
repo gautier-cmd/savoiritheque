@@ -328,7 +328,7 @@ migration.
    ci-dessous.
 4. Écran Bibliothèque : recherche, filtres, grille, cartes.
 5. Responsive.
-6. Fiche de contenu.
+6. Fiche de contenu — fait, voir ci-dessous.
 7. Lecteur vidéo et programme.
 8. Notes.
 9. États vides et erreurs.
@@ -455,6 +455,116 @@ des extracteurs remplacés.
 La carte de la grille n'est pas encore celle de la spec (16:9, badge,
 auteur...) — seul le remplacement emoji -> image a été branché pour
 vérifier le mécanisme. La vraie carte vient en tranche 4.
+
+### Tranche 6 — fiche de contenu (fait)
+
+Reprise de la fiche (`templates/item_detail.html`) selon les sections
+20 à 28 de la spec : elle s'était éloignée en pile verticale de cartes.
+Nouvelle structure : hero horizontal (couverture ~30-35% à gauche ;
+badge, titre, auteur/formateur, durée, nombre de médias, chapitres,
+année, boutons d'action à droite — `extract_hero_fields()` dans
+studia.py, qui choisit auteur/année parmi la présentation locale puis
+les métadonnées de livre validées), suivi de trois onglets À propos /
+Programme / Ressources (bascule en JS pur, `data-tab-target` /
+`data-panel`, pas de bibliothèque).
+
+Cinq corrections demandées par Gautier :
+
+1. **Logo.** La fenêtre principale (grille) affichait `<h1>Studia</h1>` ;
+   remplacé par `static/images/logo.png` (picto + texte), comme la
+   sidebar.
+2. **Redondances supprimées :**
+   - La table des matières que certaines présentations répètent en fin
+     de texte (ex. Copywriter : "Table des matières" ; Motion Design :
+     "Les vingt-sept chapitres", sans le mot "sommaire") duplique le
+     programme réel tiré du scan. `presentation.py` la coupe désormais
+     à l'affichage (`_drop_table_of_contents`, repérage par mot-clé de
+     titre — "table des matières", "sommaire", "chapitre", "programme"
+     — jamais par position, donc un contenu qui n'a pas ce genre de
+     titre n'est jamais tronqué). Le programme réel reste seul, dans
+     l'onglet Programme, en accordéon (`<details>`) replié par défaut.
+   - Sur Adobe Illustrator, Auteur/Éditeur apparaissaient à la fois
+     dans les faits extraits de la présentation et dans la carte
+     Métadonnées validée. `filter_duplicated_presentation_facts()`
+     (studia.py) retire des faits de présentation les libellés que la
+     carte Métadonnées affiche déjà, une fois validée — **correctif
+     provisoire** : la vraie solution (traçabilité de la source de
+     chaque champ) est la prochaine tranche demandée par Gautier, pas
+     encore commencée.
+3. **Bouton d'action principal** du hero : lien direct vers la première
+   vidéo (`first_video_id`) si l'item en a une, sinon un bouton désactivé
+   pour livre/livre audio/audiobook (pas encore de lecteur audio/PDF).
+   Le libellé "Reprendre" (au lieu de "Regarder") suppose une
+   progression enregistrée : pas encore le cas (voir backlog "sauvegarde
+   de la position de lecture"), donc seul "Regarder" est atteignable
+   pour l'instant — pas un bug, une conséquence attendue.
+4. **Lecteur vidéo** (`templates/video_player.html`) : la note
+   (`render_note`) est remontée juste sous les boutons précédent/
+   suivant, dans la même colonne que la vidéo, au lieu d'une ligne
+   pleine largeur séparée en dessous. La playlist (`.playlist`) est
+   maintenant calée sur la hauteur de cette colonne par un script
+   (`ResizeObserver` sur `.main`, hauteur recopiée sur `.playlist`) —
+   préféré à un `align-items: stretch` en CSS, dont le comportement
+   avec une liste très longue (258 vidéos sur Motion Design) et un
+   `overflow-y: auto` était incertain sans test réel.
+5. **Badges en français** : BOOK/COURSE/AUDIOBOOK → LIVRE/FORMATION/
+   AUDIOBOOK (`BADGE_LABELS` dans studia.py, fonction `badge_label()`).
+
+Vérifié à l'œil sur les 4 items de la bibliothèque de test (grille et
+fiches), `pytest tests/` (73 tests) au vert.
+
+### Traçabilité des métadonnées — règle actée, pas encore implémentée
+
+Décidé avec Gautier, à mettre en œuvre dans une tranche séparée (pas
+commencée) : **aucun champ de métadonnée sans source identifiée.**
+
+- Chaque champ stocke sa source : scanner, présentation locale
+  (`000 - Presentation....html`), Google Books, Open Library, saisie
+  manuelle, ou une source fournie explicitement par Gautier lui-même
+  (à nommer comme telle, pas confondue avec le scanner).
+- Sources autorisées pour les livres et audiobooks : Google Books et
+  Open Library, uniquement après validation d'un candidat par Gautier
+  (voir "Métadonnées de livres" ci-dessus, déjà le cas).
+- Sources autorisées pour les formations vidéo : tuto.com, elephorm,
+  udemy, LinkedIn Learning, etc. (moissonnage, voir backlog), le fichier
+  `000 - Presentation....html` livré avec la formation, les faits lus
+  par le scanner (durée, nombre de médias, chapitres), et une source
+  fournie explicitement par Gautier.
+- Saisie manuelle : autorisée dans tous les cas, toujours comme source
+  déclarée.
+- Un rescan ne doit jamais remplacer un champ dont la source n'est pas
+  le scanner.
+- Les fiches déjà en base seront reprises pour y inscrire la bonne
+  source, sans rien supprimer.
+
+Le correctif provisoire de la Tranche 6 (`filter_duplicated_presentation_facts`)
+disparaîtra probablement à ce moment-là, remplacé par un vrai choix par
+source plutôt qu'un masquage de libellés.
+
+### Priorité des couvertures — ordre acté, pas encore implémenté
+
+Décidé avec Gautier, remplace l'ordre de la Tranche 3 ci-dessus le jour
+où l'import manuel et la couverture Google Books seront ajoutés (tranche
+séparée, pas commencée) :
+
+1. image importée manuellement — priorité absolue, jamais écrasée par
+   un rescan ni par `--recovers`.
+2. image déjà présente dans le dossier de l'item.
+3. première page du PDF ou de l'ebook (EPUB : couverture généralement
+   intégrée au fichier ; si extraite, même rang que le PDF).
+4. pochette intégrée du M4B.
+5. couverture Google Books, si des métadonnées ont été validées.
+6. image extraite de la vidéo.
+7. placeholder par type.
+
+Raison donnée par Gautier pour placer le PDF/l'ebook avant Google
+Books : la première page vient de l'exemplaire qu'il possède
+réellement, pas d'une autre édition que Google Books pourrait renvoyer.
+
+L'import manuel lui-même (bouton sur la fiche, chargement depuis le
+disque ou collage presse-papiers, stocké dans le cache des couvertures
+— jamais dans la bibliothèque —, suppression possible pour revenir à
+l'extraction automatique) n'est pas encore implémenté.
 
 ## Objectif suivant
 

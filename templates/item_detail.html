@@ -20,175 +20,261 @@
 
 {% block header %}
 <div class="header">
-    <div class="container">
-        <a href="{{ url_for('library_grid') }}">← Bibliothèque</a>
-        <h1>{{ item['title'] }}</h1>
-        <span class="badge">{{ item['item_type'] }}</span>
+    <div class="container breadcrumb">
+        <a href="{{ url_for('library_grid') }}">Bibliothèque</a>
+        <span class="breadcrumb-sep">›</span>
+        <span>{{ item['title'] }}</span>
     </div>
 </div>
 {% endblock %}
 
 {% block content %}
 <div class="container">
-    {% if presentation %}
-    <div class="card">
-        {% if presentation.cover_data_uri or presentation.facts %}
-        <div class="presentation-top">
-            {% if presentation.cover_data_uri %}
-            <img class="cover-image" src="{{ presentation.cover_data_uri }}" alt="Couverture">
-            {% endif %}
-            {% if presentation.facts %}
-            <dl class="facts">
-                {% for fact in presentation.facts %}
-                <div class="fact-row">
-                    <dt>{{ fact.label }}</dt>
-                    <dd>
-                        {% for run in fact.runs %}{% if run.href %}<a href="{{ run.href }}" target="_blank" rel="noopener">{{ run.text }}</a>{% else %}{{ run.text }}{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}
-                    </dd>
-                </div>
-                {% endfor %}
-            </dl>
+    <div class="hero">
+        <div class="hero-cover">
+            {% if item['cover_url'] %}
+            <img src="{{ item['cover_url'] }}" alt="">
+            {% else %}
+            <div class="cover-placeholder {{ item['item_type'] }}">
+                {% if item['item_type'] == 'course' %}🎬
+                {% elif item['item_type'] in ('book', 'book_audio') %}📖
+                {% elif item['item_type'] == 'audiobook' %}🎧
+                {% else %}📄{% endif %}
+            </div>
             {% endif %}
         </div>
-        {% endif %}
 
-        {% for block in presentation.blocks %}
-            {% if block.type == 'heading' %}
-            <h4 class="presentation-heading">{{ block.text }}</h4>
-            {% elif block.type == 'paragraph' %}
-            <p class="presentation-text">{{ block.text }}</p>
-            {% elif block.type == 'list' %}
-            <ul class="presentation-list">
-                {% for list_item in block['items'] %}<li>{{ list_item }}</li>{% endfor %}
-            </ul>
-            {% elif block.type == 'note' %}
-            <div class="presentation-note">{{ block.text }}</div>
-            {% endif %}
-        {% endfor %}
+        <div class="hero-info">
+            <span class="badge">{{ badge_label(item['item_type']) }}</span>
+            <h1>{{ item['title'] }}</h1>
+            {% if hero.author %}<p class="hero-author">{{ hero.author }}</p>{% endif %}
+
+            <div class="hero-meta">
+                {% if total_duration %}<span>{{ format_duration(total_duration) }}</span>{% endif %}
+                <span>{{ chapters | sum(attribute='count') }} média(s)</span>
+                {% if chapters | selectattr('parent_path') | list | length %}
+                <span>{{ chapters | selectattr('parent_path') | list | length }} chapitre(s)</span>
+                {% endif %}
+                {% if hero.year %}<span>{{ hero.year }}</span>{% endif %}
+            </div>
+
+            <div class="hero-actions">
+                {% if first_video_id %}
+                <a class="btn-primary" href="{{ url_for('watch_video', media_id=first_video_id) }}">▶ Regarder</a>
+                {% elif item['item_type'] in ('book', 'book_audio', 'audiobook') %}
+                <span class="btn-primary disabled" aria-disabled="true" title="Lecteur pas encore disponible">Lire</span>
+                {% endif %}
+                {% if resources %}
+                <button type="button" class="btn-secondary" data-tab-target="ressources">Voir les ressources</button>
+                {% endif %}
+            </div>
+        </div>
     </div>
-    {% endif %}
 
-    {% if book %}
-    {% set source_labels = {'google_books': 'Google Books', 'open_library': 'Open Library', 'manual': 'Saisie manuelle'} %}
-    <div class="card" id="metadonnees">
-        <h3>Métadonnées</h3>
+    <div class="tabs" role="tablist">
+        <button type="button" class="tab active" data-tab-target="apropos" role="tab" aria-selected="true">À propos</button>
+        <button type="button" class="tab" data-tab-target="programme" role="tab" aria-selected="false">Programme</button>
+        <button type="button" class="tab" data-tab-target="ressources" role="tab" aria-selected="false">Ressources</button>
+    </div>
 
-        {% if book.status == 'validated' %}
+    <div class="tab-panel" data-panel="apropos">
+        {% if presentation_facts %}
         <dl class="facts">
-            {% if book.accepted['authors'] %}<div class="fact-row"><dt>Auteur</dt><dd>{{ book.accepted['authors'] }}</dd></div>{% endif %}
-            {% if book.accepted['publisher'] %}<div class="fact-row"><dt>Éditeur</dt><dd>{{ book.accepted['publisher'] }}</dd></div>{% endif %}
-            {% if book.accepted['published_year'] %}<div class="fact-row"><dt>Année</dt><dd>{{ book.accepted['published_year'] }}</dd></div>{% endif %}
-            {% if book.accepted['isbn'] %}<div class="fact-row"><dt>ISBN</dt><dd>{{ book.accepted['isbn'] }}</dd></div>{% endif %}
-            <div class="fact-row"><dt>Source</dt><dd>{{ source_labels.get(book.accepted['source'], book.accepted['source']) }}</dd></div>
-        </dl>
-        {% if book.accepted['cover_url'] %}
-        <img class="candidate-cover" style="width:90px; margin-top:8px;" src="{{ book.accepted['cover_url'] }}" alt="Couverture">
-        {% endif %}
-
-        <details style="margin-top:14px;">
-            <summary class="hint">Modifier</summary>
-            <form class="search-form" method="post" action="{{ url_for('book_search', item_id=item['id']) }}" style="margin-top:10px;">
-                <input type="text" name="query" value="{{ book.query }}">
-                <button class="btn-mini" type="submit">Rechercher à nouveau</button>
-            </form>
-            <p class="hint" style="margin-top:10px;">Ou saisir/corriger à la main :</p>
-            {{ manual_form(item['id']) }}
-        </details>
-
-        {% else %}
-
-            {% if book.status == 'has_candidates' %}
-            <p class="hint">{{ book.proposed|length }} candidat(s) trouvé(s) pour « {{ book.query }} » — choisis celui qui correspond, ou aucun.</p>
-            {% for candidate in book.proposed %}
-            <div class="candidate-card">
-                {% if candidate['cover_url'] %}<img class="candidate-cover" src="{{ candidate['cover_url'] }}" alt="">{% endif %}
-                <div class="candidate-info">
-                    <div class="candidate-source">{{ source_labels.get(candidate['source'], candidate['source']) }}</div>
-                    <strong>{{ candidate['title'] }}</strong><br>
-                    {{ candidate['authors'] or '—' }}{% if candidate['publisher'] %} — {{ candidate['publisher'] }}{% endif %}{% if candidate['published_year'] %} ({{ candidate['published_year'] }}){% endif %}
-                    {% if candidate['isbn'] %}<br><span class="file-meta">ISBN {{ candidate['isbn'] }}</span>{% endif %}
-                    <div class="candidate-actions">
-                        <form method="post" action="{{ url_for('book_candidate_accept', item_id=item['id'], candidate_id=candidate['id']) }}">
-                            <button class="btn-mini" type="submit">Utiliser celle-ci</button>
-                        </form>
-                        <form method="post" action="{{ url_for('book_candidate_reject', item_id=item['id'], candidate_id=candidate['id']) }}">
-                            <button class="btn-mini reject" type="submit">Rejeter</button>
-                        </form>
-                    </div>
-                </div>
+            {% for fact in presentation_facts %}
+            <div class="fact-row">
+                <dt>{{ fact.label }}</dt>
+                <dd>
+                    {% for run in fact.runs %}{% if run.href %}<a href="{{ run.href }}" target="_blank" rel="noopener">{{ run.text }}</a>{% else %}{{ run.text }}{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}
+                </dd>
             </div>
             {% endfor %}
-            {% elif book.status == 'searched_no_match' %}
-            <p class="hint">Aucun résultat sur Google Books ni Open Library pour « {{ book.query }} ».</p>
-            {% elif book.isbn_detected %}
-            <p class="hint">ISBN détecté dans les fichiers : {{ book.isbn_detected }}</p>
+        </dl>
+        {% endif %}
+
+        {% if presentation %}
+            {% for block in presentation.blocks %}
+                {% if block.type == 'heading' %}
+                <h4 class="presentation-heading">{{ block.text }}</h4>
+                {% elif block.type == 'paragraph' %}
+                <p class="presentation-text">{{ block.text }}</p>
+                {% elif block.type == 'list' %}
+                <ul class="presentation-list">
+                    {% for list_item in block['items'] %}<li>{{ list_item }}</li>{% endfor %}
+                </ul>
+                {% elif block.type == 'note' %}
+                <div class="presentation-note">{{ block.text }}</div>
+                {% endif %}
+            {% endfor %}
+        {% elif not presentation_facts %}
+        <p class="hint">Pas de description disponible.</p>
+        {% endif %}
+
+        {% if book %}
+        {% set source_labels = {'google_books': 'Google Books', 'open_library': 'Open Library', 'manual': 'Saisie manuelle'} %}
+        <div class="card" id="metadonnees">
+            <h3>Métadonnées</h3>
+
+            {% if book.status == 'validated' %}
+            <dl class="facts">
+                {% if book.accepted['authors'] %}<div class="fact-row"><dt>Auteur</dt><dd>{{ book.accepted['authors'] }}</dd></div>{% endif %}
+                {% if book.accepted['publisher'] %}<div class="fact-row"><dt>Éditeur</dt><dd>{{ book.accepted['publisher'] }}</dd></div>{% endif %}
+                {% if book.accepted['published_year'] %}<div class="fact-row"><dt>Année</dt><dd>{{ book.accepted['published_year'] }}</dd></div>{% endif %}
+                {% if book.accepted['isbn'] %}<div class="fact-row"><dt>ISBN</dt><dd>{{ book.accepted['isbn'] }}</dd></div>{% endif %}
+                <div class="fact-row"><dt>Source</dt><dd>{{ source_labels.get(book.accepted['source'], book.accepted['source']) }}</dd></div>
+            </dl>
+            {% if book.accepted['cover_url'] %}
+            <img class="candidate-cover" style="width:90px; margin-top:8px;" src="{{ book.accepted['cover_url'] }}" alt="Couverture">
             {% endif %}
 
-            <form class="search-form" method="post" action="{{ url_for('book_search', item_id=item['id']) }}" style="margin-top:10px;">
-                <input type="text" name="query" value="{{ book.query or book.suggested_query }}">
-                <button class="btn-mini" type="submit">
-                    {% if book.status == 'searched_no_match' %}Réessayer{% elif book.status == 'has_candidates' %}Rechercher à nouveau{% else %}Rechercher{% endif %}
-                </button>
-            </form>
-
-            <details style="margin-top:10px;">
-                <summary class="hint">Aucune ne convient / saisir moi-même</summary>
+            <details style="margin-top:14px;">
+                <summary class="hint">Modifier</summary>
+                <form class="search-form" method="post" action="{{ url_for('book_search', item_id=item['id']) }}" style="margin-top:10px;">
+                    <input type="text" name="query" value="{{ book.query }}">
+                    <button class="btn-mini" type="submit">Rechercher à nouveau</button>
+                </form>
+                <p class="hint" style="margin-top:10px;">Ou saisir/corriger à la main :</p>
                 {{ manual_form(item['id']) }}
             </details>
 
-        {% endif %}
+            {% else %}
 
-        {% if book.rejected %}
-        <details style="margin-top:14px;">
-            <summary class="hint">Candidats rejetés ({{ book.rejected|length }})</summary>
-            {% for candidate in book.rejected %}
-            <div class="candidate-card">
-                <div class="candidate-info">
-                    <div class="candidate-source">{{ source_labels.get(candidate['source'], candidate['source']) }}</div>
-                    <strong>{{ candidate['title'] }}</strong> — {{ candidate['authors'] or '—' }}
-                    <div class="candidate-actions">
-                        <form method="post" action="{{ url_for('book_candidate_unreject', item_id=item['id'], candidate_id=candidate['id']) }}">
-                            <button class="btn-mini secondary" type="submit">Annuler le rejet</button>
-                        </form>
+                {% if book.status == 'has_candidates' %}
+                <p class="hint">{{ book.proposed|length }} candidat(s) trouvé(s) pour « {{ book.query }} » — choisis celui qui correspond, ou aucun.</p>
+                {% for candidate in book.proposed %}
+                <div class="candidate-card">
+                    {% if candidate['cover_url'] %}<img class="candidate-cover" src="{{ candidate['cover_url'] }}" alt="">{% endif %}
+                    <div class="candidate-info">
+                        <div class="candidate-source">{{ source_labels.get(candidate['source'], candidate['source']) }}</div>
+                        <strong>{{ candidate['title'] }}</strong><br>
+                        {{ candidate['authors'] or '—' }}{% if candidate['publisher'] %} — {{ candidate['publisher'] }}{% endif %}{% if candidate['published_year'] %} ({{ candidate['published_year'] }}){% endif %}
+                        {% if candidate['isbn'] %}<br><span class="file-meta">ISBN {{ candidate['isbn'] }}</span>{% endif %}
+                        <div class="candidate-actions">
+                            <form method="post" action="{{ url_for('book_candidate_accept', item_id=item['id'], candidate_id=candidate['id']) }}">
+                                <button class="btn-mini" type="submit">Utiliser celle-ci</button>
+                            </form>
+                            <form method="post" action="{{ url_for('book_candidate_reject', item_id=item['id'], candidate_id=candidate['id']) }}">
+                                <button class="btn-mini reject" type="submit">Rejeter</button>
+                            </form>
+                        </div>
                     </div>
                 </div>
-            </div>
-            {% endfor %}
-        </details>
+                {% endfor %}
+                {% elif book.status == 'searched_no_match' %}
+                <p class="hint">Aucun résultat sur Google Books ni Open Library pour « {{ book.query }} ».</p>
+                {% elif book.isbn_detected %}
+                <p class="hint">ISBN détecté dans les fichiers : {{ book.isbn_detected }}</p>
+                {% endif %}
+
+                <form class="search-form" method="post" action="{{ url_for('book_search', item_id=item['id']) }}" style="margin-top:10px;">
+                    <input type="text" name="query" value="{{ book.query or book.suggested_query }}">
+                    <button class="btn-mini" type="submit">
+                        {% if book.status == 'searched_no_match' %}Réessayer{% elif book.status == 'has_candidates' %}Rechercher à nouveau{% else %}Rechercher{% endif %}
+                    </button>
+                </form>
+
+                <details style="margin-top:10px;">
+                    <summary class="hint">Aucune ne convient / saisir moi-même</summary>
+                    {{ manual_form(item['id']) }}
+                </details>
+
+            {% endif %}
+
+            {% if book.rejected %}
+            <details style="margin-top:14px;">
+                <summary class="hint">Candidats rejetés ({{ book.rejected|length }})</summary>
+                {% for candidate in book.rejected %}
+                <div class="candidate-card">
+                    <div class="candidate-info">
+                        <div class="candidate-source">{{ source_labels.get(candidate['source'], candidate['source']) }}</div>
+                        <strong>{{ candidate['title'] }}</strong> — {{ candidate['authors'] or '—' }}
+                        <div class="candidate-actions">
+                            <form method="post" action="{{ url_for('book_candidate_unreject', item_id=item['id'], candidate_id=candidate['id']) }}">
+                                <button class="btn-mini secondary" type="submit">Annuler le rejet</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </details>
+            {% endif %}
+        </div>
         {% endif %}
     </div>
-    {% endif %}
 
-    {% for parent_path, media_list in chapters %}
-    <div class="card">
-        <h3>{{ parent_path if parent_path else 'Racine' }}</h3>
-        {% for media in media_list %}
-        <div class="file-row">
-            {% if media['media_type'] == 'video' %}
-            <a href="{{ url_for('watch_video', media_id=media['id']) }}">{{ media['relative_path'].rsplit('/', 1)[-1] }}</a>
-            {% else %}
-            <span>{{ media['relative_path'].rsplit('/', 1)[-1] }}</span>
-            {% endif %}
-            <span class="file-meta">{{ format_duration(media['duration_seconds']) }}</span>
-        </div>
+    <div class="tab-panel hidden" data-panel="programme">
+        {% for chapter in chapters %}
+        <details class="programme-chapter">
+            <summary>
+                <span class="chevron">›</span>
+                <span class="chapter-title">{{ chapter.parent_path if chapter.parent_path else 'Racine' }}</span>
+                <span class="chapter-meta">{{ chapter.count }} média(s) · {{ format_duration(chapter.duration) }}</span>
+            </summary>
+            <div class="programme-media">
+                {% for media in chapter.media %}
+                <div class="file-row">
+                    {% if media['media_type'] == 'video' %}
+                    <a href="{{ url_for('watch_video', media_id=media['id']) }}">{{ media['relative_path'].rsplit('/', 1)[-1] }}</a>
+                    {% else %}
+                    <span>{{ media['relative_path'].rsplit('/', 1)[-1] }}</span>
+                    {% endif %}
+                    <span class="file-meta">{{ format_duration(media['duration_seconds']) }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </details>
         {% endfor %}
+        {% if not chapters %}
+        <p class="hint">Aucun média.</p>
+        {% endif %}
     </div>
-    {% endfor %}
 
-    {% if resources %}
-    <div class="card">
-        <h3>Ressources</h3>
+    <div class="tab-panel hidden" data-panel="ressources">
         {% for resource in resources %}
         <div class="file-row">
             <span>{{ resource['relative_path'].rsplit('/', 1)[-1] }}</span>
             <span class="file-meta">{{ resource['resource_type'] }}</span>
         </div>
         {% endfor %}
+        {% if not resources %}
+        <p class="hint">Aucune ressource.</p>
+        {% endif %}
     </div>
-    {% endif %}
 
     {{ render_note(item['id'], note_text, note_updated_at) }}
 </div>
 {% endblock %}
 
 {% block print %}{{ render_print_block(item['title']) }}{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    var tabs = document.querySelectorAll('.tab');
+    var panels = document.querySelectorAll('.tab-panel');
+    var secondaryButtons = document.querySelectorAll('[data-tab-target]:not(.tab)');
+
+    function activate(target) {
+        tabs.forEach(function (tab) {
+            var isTarget = tab.getAttribute('data-tab-target') === target;
+            tab.classList.toggle('active', isTarget);
+            tab.setAttribute('aria-selected', isTarget ? 'true' : 'false');
+        });
+        panels.forEach(function (panel) {
+            panel.classList.toggle('hidden', panel.getAttribute('data-panel') !== target);
+        });
+    }
+
+    tabs.forEach(function (tab) {
+        tab.addEventListener('click', function () {
+            activate(tab.getAttribute('data-tab-target'));
+        });
+    });
+
+    secondaryButtons.forEach(function (button) {
+        button.addEventListener('click', function () {
+            activate(button.getAttribute('data-tab-target'));
+        });
+    });
+})();
+</script>
+{% endblock %}

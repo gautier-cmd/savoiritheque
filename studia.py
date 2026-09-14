@@ -21,6 +21,28 @@ from covers import cover_cache_dir, cover_cache_path
 
 BOOK_ITEM_TYPES = ("book", "book_audio", "audiobook")
 
+BADGE_LABELS = {
+    "course": "FORMATION",
+    "book": "LIVRE",
+    "book_audio": "LIVRE AUDIO",
+    "audiobook": "AUDIOBOOK",
+    "document": "DOCUMENT",
+}
+
+# Libellés de fiche technique qui désignent la même idée qu'"auteur" ou
+# "année" selon la source (présentation locale) — pour le hero de la
+# fiche, qui n'affiche qu'une seule ligne de chacun.
+HERO_AUTHOR_LABELS = {"auteur", "autrice", "auteurs", "formateur", "formateurs"}
+HERO_YEAR_LABELS = {"publié", "date de publication", "année"}
+
+# Champs que la carte Métadonnées (book_metadata) affiche déjà : ne pas
+# les répéter dans la fiche technique extraite de la présentation.
+PRESENTATION_FACTS_DUPLICATED_BY_BOOK_METADATA = {"auteur", "autrice", "éditeur", "editeur"}
+
+
+def badge_label(item_type: str) -> str:
+    return BADGE_LABELS.get(item_type, item_type.upper())
+
 
 def fetch_video_media(conn, media_id: int):
     """Media de type vidéo, avec le chemin de bibliothèque et le titre
@@ -93,6 +115,61 @@ def fetch_book_candidates(conn, item_id: int):
         """,
         (item_id,),
     ).fetchall()
+
+
+def extract_hero_fields(presentation: dict | None, book: dict | None) -> dict:
+    """Auteur et année à afficher dans le hero, choisis parmi les
+    sources déjà extraites — présentation locale d'abord, puis les
+    métadonnées de livre validées.
+
+    Ne relit rien, ne devine rien de nouveau : recombine juste des
+    valeurs déjà là pour éviter de les chercher deux fois dans le
+    gabarit.
+    """
+
+    author = None
+    year = None
+
+    if presentation:
+        for fact in presentation["facts"]:
+            label = fact["label"].strip().lower()
+            if label in HERO_AUTHOR_LABELS and author is None:
+                author = ", ".join(run["text"] for run in fact["runs"])
+            if label in HERO_YEAR_LABELS and year is None:
+                text = ", ".join(run["text"] for run in fact["runs"])
+                year = text[:4] if text[:4].isdigit() else text
+
+    if book and book["status"] == "validated":
+        accepted = book["accepted"]
+        if author is None and accepted["authors"]:
+            author = accepted["authors"]
+        if year is None and accepted["published_year"]:
+            year = accepted["published_year"]
+
+    return {"author": author, "year": year}
+
+
+def filter_duplicated_presentation_facts(
+    facts: list[dict], book: dict | None
+) -> list[dict]:
+    """Retire de la fiche technique de présentation les champs déjà
+    affichés par la carte Métadonnées, une fois qu'elle est validée.
+
+    Le contenu de la présentation n'est pas modifié (Gautier a demandé
+    de ne pas y toucher) : seul l'affichage évite de montrer deux fois
+    Auteur/Éditeur. Les champs propres à la présentation (langue,
+    sujets, identifiants...) restent affichés.
+    """
+
+    if not book or book["status"] != "validated":
+        return facts
+
+    return [
+        fact
+        for fact in facts
+        if fact["label"].strip().lower()
+        not in PRESENTATION_FACTS_DUPLICATED_BY_BOOK_METADATA
+    ]
 
 
 def fetch_book_state(conn, item_id: int) -> dict:
@@ -278,6 +355,26 @@ def group_by_parent(rows):
     return list(grouped.items())
 
 
+def build_programme_chapters(media_rows) -> list[dict]:
+    """Chapitres de l'onglet Programme : médias groupés, avec le
+    total de médias et de durée par chapitre (calculé ici plutôt que
+    dans le gabarit pour ne pas dépendre du filtre "sum" de Jinja face
+    à des durées non encore sondées, donc NULL)."""
+
+    chapters = []
+    for parent_path, media_list in group_by_parent(media_rows):
+        chapters.append(
+            {
+                "parent_path": parent_path,
+                "media": media_list,
+                "count": len(media_list),
+                "duration": sum(m["duration_seconds"] or 0 for m in media_list),
+            }
+        )
+
+    return chapters
+
+
 def fetch_note(conn, library_path: str):
     """Note d'un item, identifiée par son chemin de bibliothèque.
 
@@ -416,6 +513,7 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
             items=items,
             format_duration=format_duration,
             orphan_note_count=orphan_note_count,
+            badge_label=badge_label,
         )
 
     @app.route("/cover/<int:item_id>")
@@ -469,7 +567,20 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
         finally:
             conn.close()
 
-        chapters = group_by_parent(media_rows)
+        item = dict(item)
+        cover_file = cover_cache_path(app.config["COVER_CACHE_DIR"], item["id"])
+        item["cover_url"] = (
+            url_for("item_cover", item_id=item["id"]) if cover_file.is_file() else None
+        )
+
+        chapters = build_programme_chapters(media_rows)
+
+        first_video = next(
+            (m for m in media_rows if m["media_type"] == "video"), None
+        )
+        first_video_id = first_video["id"] if first_video else None
+
+        total_duration = sum(m["duration_seconds"] or 0 for m in media_rows)
 
         presentation_resource = next(
             (r for r in resources if r["resource_type"] == "presentation"),
@@ -499,6 +610,13 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
             finally:
                 conn.close()
 
+        presentation_facts = (
+            filter_duplicated_presentation_facts(presentation["facts"], book)
+            if presentation
+            else []
+        )
+        hero = extract_hero_fields(presentation, book)
+
         conn = connect_database(app.config["DB_PATH"])
         try:
             note = fetch_note(conn, item["library_path"])
@@ -511,10 +629,15 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
             chapters=chapters,
             resources=resources,
             presentation=presentation,
+            presentation_facts=presentation_facts,
             book=book,
+            hero=hero,
+            first_video_id=first_video_id,
+            total_duration=total_duration,
             note_text=note["text"] if note else "",
             note_updated_at=note["updated_at"] if note else None,
             format_duration=format_duration,
+            badge_label=badge_label,
         )
 
     @app.route("/item/<int:item_id>/note", methods=["POST"])

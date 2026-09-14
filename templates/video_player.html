@@ -26,6 +26,8 @@
             <span class="disabled">Suivant →</span>
             {% endif %}
         </div>
+
+        {{ render_note(media['item_id'], note_text, note_updated_at, player_context=player_context) }}
     </div>
 
     <div class="playlist">
@@ -40,19 +42,37 @@
         {% endfor %}
     </div>
 </div>
-
-<div class="layout" style="padding-top: 0;">
-    <div class="main">
-        {{ render_note(media['item_id'], note_text, note_updated_at, player_context=player_context) }}
-    </div>
-    <div style="width: 320px; flex-shrink: 0;"></div>
-</div>
-
 {% endblock %}
 
 {% block print %}{{ render_print_block(media['item_title']) }}{% endblock %}
 
 {% block scripts %}
+<script>
+    (function () {
+        var main = document.querySelector('.main');
+        var playlist = document.querySelector('.playlist');
+        if (!main || !playlist) {
+            return;
+        }
+
+        function syncPlaylistHeight() {
+            if (window.innerWidth <= 900) {
+                playlist.style.height = '';
+                return;
+            }
+            playlist.style.height = main.offsetHeight + 'px';
+        }
+
+        if (window.ResizeObserver) {
+            new ResizeObserver(syncPlaylistHeight).observe(main);
+        } else {
+            window.addEventListener('resize', syncPlaylistHeight);
+        }
+
+        syncPlaylistHeight();
+    })();
+</script>
+
 {% if seek_seconds %}
 <script>
     (function () {

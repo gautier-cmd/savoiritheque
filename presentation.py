@@ -127,4 +127,35 @@ def parse_presentation(html_text: str) -> dict:
             if text:
                 blocks.append({"type": "note", "text": text})
 
-    return {"cover_data_uri": cover_data_uri, "facts": facts, "blocks": blocks}
+    return {
+        "cover_data_uri": cover_data_uri,
+        "facts": facts,
+        "blocks": _drop_table_of_contents(blocks),
+    }
+
+
+_TOC_HEADING_KEYWORDS = ("table des matières", "sommaire", "chapitre", "programme")
+
+
+def _looks_like_toc_heading(text: str) -> bool:
+    lowered = text.lower()
+    return any(keyword in lowered for keyword in _TOC_HEADING_KEYWORDS)
+
+
+def _drop_table_of_contents(blocks: list[dict]) -> list[dict]:
+    """Retire la table des matières que certaines pages de présentation
+    répètent en fin de texte (ex. "Table des matières", "Les
+    vingt-sept chapitres" suivi d'une liste par chapitre).
+
+    C'est un doublon : le programme réel, tiré du scan (parent_path,
+    sort_order), s'affiche déjà ailleurs sur la fiche et lui seul reflète
+    les fichiers présents. On coupe à partir du titre qui l'introduit,
+    identifié par un mot-clé plutôt qu'une position dans le texte — un
+    contenu qui n'a jamais ce genre de titre n'est jamais tronqué.
+    """
+
+    for i, block in enumerate(blocks):
+        if block["type"] == "heading" and _looks_like_toc_heading(block["text"]):
+            return blocks[:i]
+
+    return blocks

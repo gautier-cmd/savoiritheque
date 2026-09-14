@@ -187,8 +187,8 @@ def test_chapitre_racine_non_consecutif_reste_un_seul_groupe(
     assert response.status_code == 200
     # Un seul groupe "Racine", pas un par plage consecutive de fichiers.
     assert data.count(">Racine<") == 1
-    # 2 chapitres + la carte Notes, toujours presente sur la fiche.
-    assert data.count("<h3>") == 3
+    # 2 chapitres (Racine + "2 - Chapitre") dans l'onglet Programme.
+    assert data.count('class="chapter-title"') == 2
     # A l'interieur du groupe, l'ordre sort_order des deux fichiers de
     # racine est respecte malgre le sous-dossier intercale entre eux.
     assert data.index("Root A") < data.index("Root C")
