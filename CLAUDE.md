@@ -70,16 +70,20 @@ mais n'écrit pas de code et ne corrige pas une commande lui-même.
                         _base.html, library_grid, item_detail,
                         video_player, orphan_notes, _note_widget
                         (Studia — héritent de _base.html)
-    static/style.css    feuille de style actuelle de Studia (ancienne
-                        palette bleue), toujours ce qui s'affiche
-                        aujourd'hui — remplacée progressivement par
-                        tokens.css au fil des tranches de la refonte
-    static/tokens.css   tokens de la refonte visuelle (voir plus bas) —
-                        chargé avant style.css, qui l'emporte encore
-                        sur les noms en commun : rien ne s'affiche
-                        encore avec ces valeurs
-    static/fonts/       Inter, deux variable fonts (romain, italique),
-                        déposées par Gautier — jamais Google Fonts
+    static/tokens.css   seul endroit où sont déclarés couleurs,
+                        typographie, espacements, rayons, transitions,
+                        breakpoints (voir "Refonte visuelle")
+    static/style.css    styles des composants, consomme uniquement
+                        tokens.css — pas de :root propre à part
+                        quelques compléments sans équivalent officiel
+                        (danger, fond sélectionné), clairement isolés
+                        en tête de fichier
+    static/fonts/       Inter, deux variable fonts (romain, italique)
+                        au format woff2 — jamais Google Fonts, jamais
+                        de .ttf dans le dépôt (2 à 2,5x plus lourd)
+    static/images/      copies de travail des logos (logo.png,
+                        logo-picto.png), servies par Flask — design/
+                        garde les fichiers d'origine de Gautier
     design/             specification.md (spec de la refonte, source de
                         vérité — voir ci-dessous), 3 maquettes PNG,
                         2 logos (LOGO.png, LOGO-Picto.png)
@@ -233,14 +237,12 @@ prochain chargement de page.
 Pas encore fait : sauvegarde de la position de lecture (progress),
 lecteur audio/PDF.
 
-### CSS et gabarits (réorganisation, aucun changement visuel)
+### CSS et gabarits
 
-Toutes les pages de Studia héritent de templates/_base.html
-(squelette HTML, `<link>` vers static/style.css, blocs title/body_class
-/header/content/scripts) plutôt que de recopier `<html><head>...`
-et leur propre `<style>`. static/style.css est la seule feuille de
-style, avec les couleurs, espacements, rayons et tailles de police en
-variables CSS (`:root`) en haut du fichier.
+Toutes les pages de Studia héritent de templates/_base.html (squelette
+HTML, `<link>` vers tokens.css puis style.css, blocs title/body_class/
+active_nav/header/content/print/scripts) plutôt que de recopier
+`<html><head>...` et leur propre `<style>`.
 
 Certaines pages ont de vraies différences (largeur de `.container`,
 taille du `<h1>` d'en-tête, marge du `.card` sur le lecteur, taille des
@@ -249,6 +251,12 @@ une seule règle au risque de changer un peu chacune, chaque `<body>`
 porte une classe (page-grid, page-item, page-player, page-orphans) et
 le fichier CSS a une règle scopée par page pour chaque différence
 réelle — repérable en cherchant "body.page-" dans static/style.css.
+
+Le bloc `print` (pas `content`) est le seul endroit où appeler
+`render_print_block(...)` : il doit rester un enfant direct de
+`<body>`, en dehors de `.app-shell`, sinon l'impression (qui masque
+tout sauf `#print-only`) ne peut plus l'atteindre — un ancêtre caché
+cache aussi ses enfants, même ceux qu'on voudrait montrer.
 
 ## Refonte visuelle
 
@@ -309,7 +317,7 @@ migration.
 ### Ordre de travail (une tranche à la fois, arrêt entre chaque)
 
 1. Design tokens — fait, voir ci-dessous.
-2. Layout global et sidebar.
+2. Layout global et sidebar — fait, voir ci-dessous.
 3. Extraction des couvertures (PDF, M4B, vidéo), cache hors bibliothèque,
    jamais écrites dedans ; placeholder par type sinon.
 4. Écran Bibliothèque : recherche, filtres, grille, cartes.
@@ -351,13 +359,50 @@ Le CSS ne permet pas d'utiliser une variable dans une condition
 futures règles `@media` devront répéter ces mêmes nombres en dur — à
 garder synchronisés à la main si on retouche le raisonnement.
 
-Rien n'est encore appliqué : `tokens.css` définit de nouveaux noms (non
-consommés) et redéfinit certains noms déjà utilisés par `style.css`
-(ex. `--color-accent`), qui l'emporte encore pour l'instant car chargé
-après — vérifié dans le navigateur, page actuelle inchangée au pixel
-près. La tranche 2 commencera à faire basculer `style.css` vers ces
-tokens, au fur et à mesure de la reconstruction du layout — pas d'un
-coup.
+### Tranche 2 — layout global et sidebar (fait)
+
+Avant de commencer, deux nettoyages demandés par Gautier :
+
+- **Une seule feuille de style.** `static/style.css` avait son propre
+  `:root` (ancienne palette bleue d'OfflineU) qui l'emportait sur
+  `tokens.css` pour les noms en commun — deux sources pour la même
+  valeur, source de confusion dès qu'on toucherait à la mise en page.
+  Supprimé : `style.css` ne déclare plus que les quelques compléments
+  sans équivalent officiel (voir "Fichiers"), tout le reste vient de
+  `tokens.css`. Résultat direct et voulu : les pages existantes ont
+  changé de couleurs et de police d'un coup (thème bleu -> palette
+  officielle) avant même que leur mise en page soit reconstruite —
+  normal, ce sont deux choses différentes qui se font l'une après
+  l'autre, pas un rendu à moitié fini.
+- **Polices en woff2.** Les .ttf déposés par Gautier ont été convertis
+  (fonttools) puis retirés du dépôt ; `tokens.css` charge les .woff2
+  (2 à 2,5 fois plus légers, format standard du web).
+
+**Sidebar**, dans `_base.html`, identique sur toutes les pages :
+- Logo (`static/images/logo.png`) en haut.
+- Navigation (section 7.1, Favoris et Notifications retirés — pas de
+  compte utilisateur en V1, voir "Contraintes absolues"). Seule
+  "Bibliothèque" a une vraie destination aujourd'hui ; Continuer,
+  Formations, Livres, Audiobooks, Notes, Paramètres s'affichent mais
+  sont désactivés (`.disabled`, sans lien) tant que leur écran n'existe
+  pas — pas de lien qui mène nulle part, pas de fonctionnalité simulée.
+  Notes existe déjà comme page séparée (/notes-orphelines) mais n'est
+  pas la même chose qu'"toutes mes notes" : pas relié pour ne pas
+  créer une confusion entre les deux.
+- Item actif marqué via `{% block active_nav %}` (une chaîne : library,
+  notes...), lu dans `_base.html` avec `self.active_nav()` et comparé
+  au `key` de chaque item de nav.
+- Signature en bas ("Apprendre / Explorer / Progresser / Pour un
+  meilleur / Demain") : texte de la maquette, repris tel quel — c'est
+  une signature de marque, pas une donnée fabriquée.
+
+Icônes de nav : SVG simples écrites à la main (pas de librairie
+d'icônes, pas de CDN — cohérent avec l'appli hors-ligne). Ce n'est pas
+le logo, donc pas concerné par l'interdiction de recréer le logo en SVG.
+
+Contenu de chaque page (grille, fiche, lecteur, notes orphelines) :
+inchangé dans cette tranche, simplement replacé à côté de la sidebar
+dans `.app-main`. Leur reconstruction vient avec les tranches 4, 6 et 7.
 
 ## Objectif suivant
 

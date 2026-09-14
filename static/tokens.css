@@ -1,18 +1,12 @@
-/* Studia — design tokens (tranche 1)
-   ===================================
+/* Studia — design tokens
+   =======================
 
    Seul endroit où ces valeurs sont déclarées. Aucun composant ne doit
    redéfinir une couleur, une taille, un espacement, un rayon, une
    transition ou un point de rupture ailleurs que dans ce fichier
-   (design/specification.md, section 51).
-
-   Ce fichier ne restyle rien à lui seul : il est chargé avant
-   static/style.css, qui redéclare encore ses propres variables
-   (ancienne palette bleue) et l'emporte donc pour l'instant sur les
-   noms qu'ils ont en commun. Rien ne change visuellement tant que la
-   tranche 2 (layout) ne consomme pas ces tokens à la place des
-   anciens. Les noms déjà utilisés par style.css seront basculés vers
-   ce fichier tranche après tranche, pas d'un coup.
+   (design/specification.md, section 51) — static/style.css n'a plus
+   de :root propre depuis la tranche 2, seulement quelques compléments
+   qui n'ont pas d'équivalent officiel (voir en tête de ce fichier-là).
 */
 
 /* ---------------------------------------------------------------
@@ -24,12 +18,16 @@
    (font-weight: 100 900) suffit, pas besoin d'un fichier par graisse
    ni de font-variation-settings pour le poids. font-optical-sizing
    laisse le navigateur ajuster l'axe opsz selon la taille affichée.
+
+   Format woff2 (converti depuis les .ttf déposés par Gautier avec
+   fonttools, .ttf non conservés dans le dépôt) : 2 à 2,5 fois plus
+   léger, c'est le format standard du web actuel.
    --------------------------------------------------------------- */
 
 @font-face {
     font-family: 'Inter';
-    src: url('fonts/Inter-VariableFont_opsz,wght.ttf') format('truetype-variations'),
-         url('fonts/Inter-VariableFont_opsz,wght.ttf') format('truetype');
+    src: url('fonts/Inter-VariableFont_opsz,wght.woff2') format('woff2-variations'),
+         url('fonts/Inter-VariableFont_opsz,wght.woff2') format('woff2');
     font-weight: 100 900;
     font-style: normal;
     font-display: swap;
@@ -37,8 +35,8 @@
 
 @font-face {
     font-family: 'Inter';
-    src: url('fonts/Inter-Italic-VariableFont_opsz,wght.ttf') format('truetype-variations'),
-         url('fonts/Inter-Italic-VariableFont_opsz,wght.ttf') format('truetype');
+    src: url('fonts/Inter-Italic-VariableFont_opsz,wght.woff2') format('woff2-variations'),
+         url('fonts/Inter-Italic-VariableFont_opsz,wght.woff2') format('woff2');
     font-weight: 100 900;
     font-style: italic;
     font-display: swap;

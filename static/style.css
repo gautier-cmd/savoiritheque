@@ -1,69 +1,16 @@
-/* Studia — feuille de style partagée par toutes les pages.
-   Les couleurs, espacements, rayons et tailles de police sont
-   déclarés une fois en haut (variables CSS) : les changer ici les
-   change partout, sans toucher au reste du fichier ni aux gabarits. */
+/* Studia — feuille de style des composants.
+   Ne déclare aucune couleur, taille, espacement ou rayon en dur : tout
+   vient de static/tokens.css (chargé avant ce fichier). Les seules
+   valeurs définies ici sont des compléments qui n'ont pas d'équivalent
+   dans la palette officielle (design/specification.md, section 4) —
+   clairement isolées ci-dessous, elles ne redéfinissent aucun nom de
+   tokens.css. */
 
 :root {
-    /* Couleurs */
-    --color-bg: #1a1a1a;
-    --color-surface: #2d2d2d;
-    --color-divider: #3d3d3d;
-    --color-border: #444;
-    --color-accent: #007acc;
-    --color-accent-light: #4aa3ff;
-    --color-text: #e0e0e0;
-    --color-text-muted: #999;
-    --color-text-faint: #555;
-    --color-danger: #663333;
-    --color-note-bg: #1e2a38;
-    --color-current-bg: #1e3a52;
-    --color-white: #fff;
-    --color-black: #000;
-
-    /* Couleurs de couverture, par type d'item (grille) */
-    --color-cover-course: #7a2323;
-    --color-cover-book: #234a7a;
-    --color-cover-book-audio: #4a237a;
-    --color-cover-audiobook: #237a5c;
-    --color-cover-document: #555;
-
-    /* Police */
-    --font-body: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-
-    /* Tailles de police */
-    --font-size-xs: 0.75em;
-    --font-size-sm: 0.8em;
-    --font-size-sm-plus: 0.85em;
-    --font-size-note: 0.88em;
-    --font-size-base-minus: 0.9em;
-    --font-size-base: 0.95em;
-    --font-size-md: 1em;
-    --font-size-md-plus: 1.05em;
-    --font-size-lg: 1.2em;
-    --font-size-lg-plus: 1.4em;
-    --font-size-xl: 1.6em;
-    --font-size-xxl: 2.5em;
-    --font-size-cover-icon: 3em;
-
-    /* Espacements */
-    --space-1: 2px;
-    --space-2: 4px;
-    --space-3: 6px;
-    --space-4: 8px;
-    --space-5: 10px;
-    --space-6: 12px;
-    --space-7: 14px;
-    --space-8: 15px;
-    --space-9: 16px;
-    --space-10: 20px;
-    --space-11: 30px;
-
-    /* Rayons */
-    --radius-xs: 3px;
-    --radius-sm: 4px;
-    --radius-md: 5px;
-    --radius-lg: 6px;
-    --radius-xl: 8px;
+    /* Compléments non officiels : la spec ne couvre pas ces cas. */
+    --color-danger: #a14b3a;             /* rejeter un candidat de métadonnées */
+    --color-selected-bg: color-mix(in srgb, var(--color-accent) 18%, var(--color-bg-sidebar));
+    --color-nav-hover-bg: color-mix(in srgb, var(--color-accent) 8%, transparent);
 }
 
 /* Réinitialisation et structure commune */
@@ -75,19 +22,111 @@
 }
 
 body {
-    font-family: var(--font-body);
+    font-family: var(--font-family-base);
     background: var(--color-bg);
     color: var(--color-text);
 }
 
 body.relaxed {
-    line-height: 1.6;
+    line-height: var(--line-height-body);
+}
+
+/* Coquille globale : sidebar permanente + zone de contenu.
+   Tranche 2 — la sidebar est la même partout, seul l'item actif change
+   (voir templates/_base.html, bloc "active_nav"). */
+
+.app-shell {
+    display: flex;
+    min-height: 100vh;
+}
+
+.sidebar {
+    width: 240px;
+    flex-shrink: 0;
+    background: var(--color-bg-sidebar);
+    border-right: 1px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    padding: var(--space-24) var(--space-16);
+}
+
+.sidebar-logo {
+    margin-bottom: var(--space-32);
+    padding: 0 var(--space-8);
+}
+
+.sidebar-logo img {
+    display: block;
+    height: 28px;
+    width: auto;
+}
+
+.sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.sidebar-nav-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-12);
+    padding: var(--space-8) var(--space-12);
+    border-radius: var(--radius-md);
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    font-size: var(--font-size-nav);
+    font-weight: var(--font-weight-medium);
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.sidebar-nav-item .icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+.sidebar-nav-item:hover {
+    background: var(--color-nav-hover-bg);
+    color: var(--color-text);
+}
+
+.sidebar-nav-item.active {
+    background: var(--color-selected-bg);
+    color: var(--color-accent);
+    font-weight: var(--font-weight-semibold);
+}
+
+.sidebar-nav-item.disabled {
+    color: var(--color-text-tertiary);
+    opacity: 0.55;
+    cursor: default;
+    pointer-events: none;
+}
+
+.sidebar-footer {
+    margin-top: auto;
+    padding: var(--space-24) var(--space-8) 0;
+    border-top: 1px solid var(--color-border);
+}
+
+.sidebar-tagline {
+    font-size: var(--font-size-annotation);
+    color: var(--color-text-tertiary);
+    line-height: var(--line-height-metadata);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.app-main {
+    flex: 1;
+    min-width: 0;
 }
 
 .container {
     max-width: 900px;
     margin: 0 auto;
-    padding: var(--space-10);
+    padding: var(--space-20);
 }
 
 body.page-grid .container {
@@ -98,22 +137,27 @@ body.page-orphans .container {
     max-width: 800px;
 }
 
-/* En-tête (grille, fiche, notes orphelines) */
+/* En-tête (grille, fiche, notes orphelines) — provisoire : sera
+   remplacé par la recherche/le hero de la spec dans les tranches
+   4 et 6, laissé tel quel pour l'instant (hors du périmètre de la
+   tranche 2). */
 
 .header {
     background: var(--color-surface);
-    padding: var(--space-10) 0;
-    margin-bottom: var(--space-11);
+    padding: var(--space-20) 0;
+    margin-bottom: var(--space-32);
     border-bottom: 3px solid var(--color-accent);
 }
 
 .header a {
-    color: var(--color-text-muted);
+    color: var(--color-text-secondary);
     text-decoration: none;
 }
 
 .header h1 {
-    font-size: var(--font-size-xl);
+    font-size: var(--font-size-page-title);
+    font-weight: var(--font-weight-bold);
+    line-height: var(--line-height-heading);
     color: var(--color-text);
 }
 
@@ -121,42 +165,43 @@ body.page-item .header .container,
 body.page-orphans .header .container {
     display: flex;
     align-items: center;
-    gap: var(--space-8);
+    gap: var(--space-16);
 }
 
 body.page-orphans .header h1 {
-    font-size: var(--font-size-lg-plus);
+    font-size: var(--font-size-section-title);
 }
 
 body.page-grid .header h1 {
-    font-size: var(--font-size-xxl);
+    font-size: var(--font-size-content-title);
     color: var(--color-accent);
     text-align: center;
 }
 
 body.page-grid .header nav {
     text-align: center;
-    margin-top: var(--space-4);
+    margin-top: var(--space-8);
 }
 
 body.page-grid .header nav a {
-    font-size: var(--font-size-sm-plus);
+    font-size: var(--font-size-metadata);
 }
 
 body.page-grid .header nav a:hover {
-    color: var(--color-accent-light);
+    color: var(--color-accent);
 }
 
 /* Badge de type */
 
 .badge {
     display: inline-block;
-    padding: var(--space-1) var(--space-4);
-    border-radius: var(--radius-xs);
-    font-size: var(--font-size-xs);
+    padding: var(--space-4) var(--space-8);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-annotation);
+    font-weight: var(--font-weight-medium);
     text-transform: uppercase;
     background: var(--color-accent);
-    color: var(--color-white);
+    color: var(--color-bg);
 }
 
 /* Carte générique (section de contenu sur la fiche et les notes
@@ -165,15 +210,17 @@ body.page-grid .header nav a:hover {
 
 .card {
     background: var(--color-surface);
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-lg);
     border-left: 4px solid var(--color-accent);
-    padding: var(--space-10);
-    margin-bottom: var(--space-10);
+    padding: var(--space-20);
+    margin-bottom: var(--space-20);
 }
 
 .card h3 {
-    margin-bottom: var(--space-6);
+    margin-bottom: var(--space-12);
     color: var(--color-accent);
+    font-size: var(--font-size-card-title);
+    font-weight: var(--font-weight-semibold);
 }
 
 body.page-grid .card {
@@ -182,7 +229,7 @@ body.page-grid .card {
     overflow: hidden;
     text-decoration: none;
     color: inherit;
-    transition: transform 0.15s;
+    transition: transform var(--transition-base);
 }
 
 body.page-grid .card:hover {
@@ -190,7 +237,7 @@ body.page-grid .card:hover {
 }
 
 body.page-player .card {
-    margin-top: var(--space-10);
+    margin-top: var(--space-20);
     margin-bottom: 0;
 }
 
@@ -199,7 +246,7 @@ body.page-player .card {
 .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: var(--space-10);
+    gap: var(--space-20);
 }
 
 .cover {
@@ -207,31 +254,32 @@ body.page-player .card {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: var(--font-size-cover-icon);
+    font-size: 3em;
 }
 
-.cover.course { background: var(--color-cover-course); }
-.cover.book { background: var(--color-cover-book); }
-.cover.book_audio { background: var(--color-cover-book-audio); }
-.cover.audiobook { background: var(--color-cover-audiobook); }
-.cover.document { background: var(--color-cover-document); }
+.cover.course { background: #7a2323; }
+.cover.book { background: #234a7a; }
+.cover.book_audio { background: #4a237a; }
+.cover.audiobook { background: #237a5c; }
+.cover.document { background: var(--color-surface-2); }
 
 .card-body {
-    padding: var(--space-8);
+    padding: var(--space-16);
 }
 
 .card-body h2 {
-    font-size: var(--font-size-md-plus);
-    margin-bottom: var(--space-4);
+    font-size: var(--font-size-card-title);
+    font-weight: var(--font-weight-semibold);
+    margin-bottom: var(--space-8);
 }
 
 .meta {
-    font-size: var(--font-size-sm-plus);
-    color: var(--color-text-muted);
+    font-size: var(--font-size-metadata);
+    color: var(--color-text-secondary);
 }
 
 body.page-grid .badge {
-    margin-bottom: var(--space-3);
+    margin-bottom: var(--space-8);
 }
 
 /* Fiche d'un item : liste de fichiers */
@@ -239,8 +287,8 @@ body.page-grid .badge {
 .file-row {
     display: flex;
     justify-content: space-between;
-    padding: var(--space-4) 0;
-    border-bottom: 1px solid var(--color-divider);
+    padding: var(--space-8) 0;
+    border-bottom: 1px solid var(--color-border);
 }
 
 .file-row:last-child {
@@ -256,25 +304,25 @@ body.page-grid .badge {
 }
 
 .file-meta {
-    color: var(--color-text-muted);
-    font-size: var(--font-size-sm-plus);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-metadata);
     white-space: nowrap;
-    margin-left: var(--space-8);
+    margin-left: var(--space-16);
 }
 
 /* Présentation extraite */
 
 .presentation-top {
     display: flex;
-    gap: var(--space-10);
+    gap: var(--space-20);
     align-items: flex-start;
-    margin-bottom: var(--space-8);
+    margin-bottom: var(--space-16);
 }
 
 .presentation-top .cover-image {
     width: 140px;
     flex-shrink: 0;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-md);
 }
 
 .facts {
@@ -284,76 +332,82 @@ body.page-grid .badge {
 
 .fact-row {
     display: flex;
-    gap: var(--space-5);
-    margin: var(--space-2) 0;
-    font-size: var(--font-size-base-minus);
+    gap: var(--space-12);
+    margin: var(--space-4) 0;
+    font-size: var(--font-size-nav);
 }
 
 .fact-row dt {
-    color: var(--color-text-muted);
+    color: var(--color-text-secondary);
     min-width: 9em;
     flex-shrink: 0;
 }
 
 .fact-row dd a {
-    color: var(--color-accent-light);
+    color: var(--color-accent);
 }
 
 .presentation-heading {
     color: var(--color-accent);
-    margin: var(--space-9) 0 var(--space-3);
-    font-size: var(--font-size-md);
+    margin: var(--space-16) 0 var(--space-8);
+    font-size: var(--font-size-card-title);
+    font-weight: var(--font-weight-semibold);
 }
 
 .presentation-text {
-    margin: var(--space-3) 0;
-    font-size: var(--font-size-base);
+    margin: var(--space-8) 0;
+    font-size: var(--font-size-body);
+    line-height: var(--line-height-body);
 }
 
 .presentation-list {
-    margin: var(--space-3) 0;
+    margin: var(--space-8) 0;
     padding-left: 1.3em;
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-body);
+    line-height: var(--line-height-body);
 }
 
 .presentation-note {
     border-left: 3px solid var(--color-accent);
-    background: var(--color-note-bg);
-    padding: var(--space-5) var(--space-7);
-    margin: var(--space-5) 0;
-    font-size: var(--font-size-note);
+    background: var(--color-surface-2);
+    padding: var(--space-12) var(--space-16);
+    margin: var(--space-12) 0;
+    font-size: var(--font-size-metadata);
     border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
 /* Petits utilitaires partagés */
 
 .hint {
-    color: var(--color-text-muted);
-    font-size: var(--font-size-sm-plus);
-    margin: var(--space-2) 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-metadata);
+    margin: var(--space-4) 0;
 }
 
 .btn-mini {
     background: var(--color-accent);
-    color: var(--color-white);
+    color: var(--color-bg);
     border: none;
-    padding: var(--space-2) var(--space-5);
+    padding: var(--space-4) var(--space-12);
     border-radius: var(--radius-sm);
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-annotation);
+    font-weight: var(--font-weight-medium);
     cursor: pointer;
 }
 
 .btn-mini.reject {
     background: var(--color-danger);
+    color: var(--color-text);
 }
 
 .btn-mini.secondary {
-    background: var(--color-border);
+    background: var(--color-surface-2);
+    color: var(--color-text);
 }
 
 body.page-orphans .btn-mini {
-    padding: var(--space-3) var(--space-6);
-    font-size: var(--font-size-sm-plus);
+    padding: var(--space-8) var(--space-16);
+    font-size: var(--font-size-metadata);
 }
 
 details summary {
@@ -364,9 +418,9 @@ details summary {
 
 .candidate-card {
     display: flex;
-    gap: var(--space-6);
-    padding: var(--space-5) 0;
-    border-bottom: 1px solid var(--color-divider);
+    gap: var(--space-12);
+    padding: var(--space-12) 0;
+    border-bottom: 1px solid var(--color-border);
     align-items: flex-start;
 }
 
@@ -382,64 +436,64 @@ details summary {
 
 .candidate-info {
     flex: 1;
-    font-size: var(--font-size-base-minus);
+    font-size: var(--font-size-nav);
 }
 
 .candidate-source {
-    color: var(--color-text-muted);
-    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-annotation);
     text-transform: uppercase;
 }
 
 .candidate-actions {
     display: flex;
-    gap: var(--space-4);
-    margin-top: var(--space-3);
+    gap: var(--space-8);
+    margin-top: var(--space-8);
 }
 
 .search-form input[type="text"] {
     background: var(--color-bg);
     border: 1px solid var(--color-border);
     color: var(--color-text);
-    padding: var(--space-4);
+    padding: var(--space-8);
     border-radius: var(--radius-sm);
     width: 100%;
     max-width: 380px;
-    margin-right: var(--space-4);
+    margin-right: var(--space-8);
 }
 
 .manual-form input {
     background: var(--color-bg);
     border: 1px solid var(--color-border);
     color: var(--color-text);
-    padding: var(--space-3);
+    padding: var(--space-8);
     border-radius: var(--radius-sm);
-    margin: var(--space-2) var(--space-3) var(--space-2) 0;
+    margin: var(--space-4) var(--space-8) var(--space-4) 0;
     width: 170px;
 }
 
 /* Notes orphelines */
 
 .card .path {
-    color: var(--color-text-muted);
-    font-size: var(--font-size-sm-plus);
-    margin-bottom: var(--space-5);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-metadata);
+    margin-bottom: var(--space-12);
 }
 
 .preview {
     white-space: pre-wrap;
-    font-size: var(--font-size-base-minus);
+    font-size: var(--font-size-nav);
     background: var(--color-bg);
     border-radius: var(--radius-sm);
-    padding: var(--space-5);
+    padding: var(--space-12);
     max-height: 150px;
     overflow-y: auto;
-    margin-bottom: var(--space-6);
+    margin-bottom: var(--space-12);
 }
 
 .reattach-form {
     display: flex;
-    gap: var(--space-4);
+    gap: var(--space-8);
     align-items: center;
 }
 
@@ -447,7 +501,7 @@ select {
     background: var(--color-bg);
     border: 1px solid var(--color-border);
     color: var(--color-text);
-    padding: var(--space-3);
+    padding: var(--space-8);
     border-radius: var(--radius-sm);
     flex: 1;
 }
@@ -456,10 +510,10 @@ select {
 
 .layout {
     display: flex;
-    gap: var(--space-10);
+    gap: var(--space-20);
     max-width: 1300px;
     margin: 0 auto;
-    padding: var(--space-10);
+    padding: var(--space-20);
     align-items: flex-start;
 }
 
@@ -469,81 +523,84 @@ select {
 }
 
 a.back {
-    color: var(--color-text-muted);
+    color: var(--color-text-secondary);
     text-decoration: none;
     display: inline-block;
-    margin-bottom: var(--space-8);
+    margin-bottom: var(--space-16);
 }
 
 body.page-player h1 {
-    font-size: var(--font-size-lg);
-    margin-bottom: var(--space-8);
+    font-size: var(--font-size-section-title);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-heading);
+    margin-bottom: var(--space-16);
 }
 
 video {
     width: 100%;
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-lg);
     display: block;
-    background: var(--color-black);
+    background: #000;
 }
 
 .nav-buttons {
     display: flex;
     justify-content: space-between;
-    margin-top: var(--space-6);
+    margin-top: var(--space-12);
 }
 
 .nav-buttons a {
     background: var(--color-surface);
     color: var(--color-text);
     text-decoration: none;
-    padding: var(--space-4) var(--space-9);
+    padding: var(--space-8) var(--space-16);
     border-radius: var(--radius-md);
     border-left: 3px solid var(--color-accent);
 }
 
 .nav-buttons a:hover {
-    background: var(--color-divider);
+    background: var(--color-surface-2);
 }
 
 .nav-buttons span.disabled {
-    color: var(--color-text-faint);
-    padding: var(--space-4) var(--space-9);
+    color: var(--color-text-tertiary);
+    padding: var(--space-8) var(--space-16);
 }
 
 .playlist {
     width: 320px;
     flex-shrink: 0;
     background: var(--color-surface);
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-lg);
     max-height: 85vh;
     overflow-y: auto;
 }
 
 .playlist h3 {
-    padding: var(--space-6) var(--space-8) var(--space-3);
+    padding: var(--space-12) var(--space-16) var(--space-8);
     color: var(--color-accent);
-    font-size: var(--font-size-base-minus);
+    font-size: var(--font-size-nav);
+    font-weight: var(--font-weight-semibold);
 }
 
 .playlist a {
     display: block;
-    padding: var(--space-4) var(--space-8);
-    color: #ccc;
+    padding: var(--space-8) var(--space-16);
+    color: var(--color-text-secondary);
     text-decoration: none;
-    font-size: var(--font-size-base-minus);
+    font-size: var(--font-size-nav);
     border-left: 3px solid transparent;
 }
 
 .playlist a:hover {
-    background: var(--color-divider);
+    background: var(--color-surface-2);
 }
 
 .playlist a.current {
-    background: var(--color-current-bg);
+    background: var(--color-selected-bg);
     border-left-color: var(--color-accent);
-    color: var(--color-white);
-    font-weight: 500;
+    color: var(--color-text);
+    font-weight: var(--font-weight-semibold);
 }
 
 @media (max-width: 900px) {
@@ -566,32 +623,32 @@ video {
     border: 1px solid var(--color-border);
     color: var(--color-text);
     border-radius: var(--radius-sm);
-    padding: var(--space-5);
+    padding: var(--space-12);
     font-family: inherit;
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-body);
     resize: vertical;
 }
 
 .note-markers {
     list-style: none;
-    margin: var(--space-4) 0 0;
+    margin: var(--space-8) 0 0;
     padding: 0;
 }
 
 .note-markers li {
-    margin: var(--space-1) 0;
+    margin: var(--space-4) 0;
 }
 
 .note-markers a {
-    color: var(--color-accent-light);
-    font-size: var(--font-size-note);
+    color: var(--color-accent);
+    font-size: var(--font-size-metadata);
 }
 
 .note-toolbar {
     display: flex;
     align-items: center;
-    gap: var(--space-5);
-    margin-top: var(--space-5);
+    gap: var(--space-12);
+    margin-top: var(--space-12);
 }
 
 #print-only {
@@ -605,12 +662,12 @@ video {
 
     #print-only {
         display: block !important;
-        color: var(--color-black);
-        background: var(--color-white);
+        color: #000;
+        background: #fff;
     }
 
     #print-only .print-date {
-        color: var(--color-text-faint);
+        color: var(--color-text-tertiary);
         margin-bottom: 1em;
     }
 

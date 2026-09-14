@@ -16,6 +16,8 @@
 
 {% block body_class %}page-item relaxed{% endblock %}
 
+{% block active_nav %}library{% endblock %}
+
 {% block header %}
 <div class="header">
     <div class="container">
@@ -187,6 +189,6 @@
 
     {{ render_note(item['id'], note_text, note_updated_at) }}
 </div>
-
-{{ render_print_block(item['title']) }}
 {% endblock %}
+
+{% block print %}{{ render_print_block(item['title']) }}{% endblock %}

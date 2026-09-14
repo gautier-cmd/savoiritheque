@@ -5,6 +5,8 @@
 
 {% block body_class %}page-player{% endblock %}
 
+{% block active_nav %}library{% endblock %}
+
 {% block content %}
 <div class="layout">
     <div class="main">
@@ -46,8 +48,9 @@
     <div style="width: 320px; flex-shrink: 0;"></div>
 </div>
 
-{{ render_print_block(media['item_title']) }}
 {% endblock %}
+
+{% block print %}{{ render_print_block(media['item_title']) }}{% endblock %}
 
 {% block scripts %}
 {% if seek_seconds %}
