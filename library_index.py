@@ -863,6 +863,18 @@ def main() -> None:
         help="oublier les durées connues et tout resonder",
     )
 
+    parser.add_argument(
+        "--covers",
+        action="store_true",
+        help="extraire les couvertures manquantes (PDF, M4B, vidéo)",
+    )
+
+    parser.add_argument(
+        "--recovers",
+        action="store_true",
+        help="ré-extraire toutes les couvertures, même déjà en cache",
+    )
+
     args = parser.parse_args()
 
     if args.reprobe and args.database.exists():
@@ -884,6 +896,26 @@ def main() -> None:
     )
 
     print_summary(args.database)
+
+    if args.covers or args.recovers:
+        from covers import cover_cache_dir, extract_all_covers
+
+        conn = connect_database(args.database)
+
+        try:
+            print()
+            print("Extraction des couvertures…")
+            cache_dir = cover_cache_dir(args.database)
+            reussites, total = extract_all_covers(
+                conn,
+                args.library.resolve(),
+                cache_dir,
+                force=args.recovers,
+            )
+            print(f"Couvertures : {reussites}/{total}")
+
+        finally:
+            conn.close()
 
 
 if __name__ == "__main__":

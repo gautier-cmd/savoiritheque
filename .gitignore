@@ -4,3 +4,8 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+
+# Cache des couvertures extraites — reconstructible, jamais suivi.
+# Vit normalement hors du dépôt (à côté de la base de données), cette
+# entrée est une précaution si un jour ce n'est pas le cas.
+covers/

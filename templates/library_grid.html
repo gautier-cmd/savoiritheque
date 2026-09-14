@@ -25,7 +25,9 @@
         {% for item in items %}
         <a class="card" href="{{ url_for('item_detail', item_id=item['id']) }}">
             <div class="cover {{ item['item_type'] }}">
-                {% if item['item_type'] == 'course' %}🎬
+                {% if item['cover_url'] %}
+                <img src="{{ item['cover_url'] }}" alt="">
+                {% elif item['item_type'] == 'course' %}🎬
                 {% elif item['item_type'] in ('book', 'book_audio') %}📖
                 {% elif item['item_type'] == 'audiobook' %}🎧
                 {% else %}📄{% endif %}

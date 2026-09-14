@@ -17,6 +17,7 @@ from flask import Flask, abort, redirect, render_template, request, send_file, u
 from library_index import connect_database, format_duration, now_iso
 from presentation import parse_presentation
 from book_metadata import default_query, find_isbn, search_candidates
+from covers import cover_cache_dir, cover_cache_path
 
 BOOK_ITEM_TYPES = ("book", "book_audio", "audiobook")
 
@@ -368,13 +369,14 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
     app = Flask(__name__)
     app.config["LIBRARY_ROOT"] = library_root.resolve()
     app.config["DB_PATH"] = db_path
+    app.config["COVER_CACHE_DIR"] = cover_cache_dir(db_path)
 
     @app.route("/")
     def library_grid():
         conn = connect_database(app.config["DB_PATH"])
 
         try:
-            items = conn.execute(
+            rows = conn.execute(
                 """
                 SELECT
                     i.id,
@@ -397,12 +399,33 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
         finally:
             conn.close()
 
+        cache_dir = app.config["COVER_CACHE_DIR"]
+        items = []
+        for row in rows:
+            item = dict(row)
+            cover_file = cover_cache_path(cache_dir, item["id"])
+            item["cover_url"] = (
+                url_for("item_cover", item_id=item["id"])
+                if cover_file.is_file()
+                else None
+            )
+            items.append(item)
+
         return render_template(
             "library_grid.html",
             items=items,
             format_duration=format_duration,
             orphan_note_count=orphan_note_count,
         )
+
+    @app.route("/cover/<int:item_id>")
+    def item_cover(item_id: int):
+        cover_file = cover_cache_path(app.config["COVER_CACHE_DIR"], item_id)
+
+        if not cover_file.is_file():
+            abort(404)
+
+        return send_file(cover_file, mimetype="image/jpeg")
 
     @app.route("/item/<int:item_id>")
     def item_detail(item_id: int):

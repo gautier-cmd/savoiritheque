@@ -62,9 +62,12 @@ mais n'écrit pas de code et ne corrige pas une commande lui-même.
                         plutôt que telles quelles
     book_metadata.py    recherche de métadonnées de livres sur Google
                         Books et Open Library, détection d'ISBN
+    covers.py           extraction des couvertures (PDF, M4B, vidéo),
+                        cache à côté de la base — jamais écrit dans la
+                        bibliothèque, voir "Tranche 3"
     tests/              test_library_index.py, test_studia.py,
                         test_presentation.py, test_book_metadata.py,
-                        test_notes.py — 60 tests pytest
+                        test_notes.py, test_covers.py — 70 tests pytest
     templates/          course_dashboard, lesson_view, select_course
                         (OfflineU, CSS repris comme point de départ) +
                         _base.html, library_grid, item_detail,
@@ -179,6 +182,8 @@ par tri naturel (10 après 9).
     POST /item/<id>/note                    enregistre la note (JSON)
     GET  /notes-orphelines                  notes dont le dossier a disparu
     POST /notes-orphelines/reattach         rattache une note à un autre item
+
+    GET /cover/<item_id>                    sert la couverture en cache (404 sinon)
 
 Chaque page de présentation a sa propre mise en page HTML (tableau, ou
 lignes en div avec couverture) selon l'item : presentation.py ne dépend
@@ -319,7 +324,8 @@ migration.
 1. Design tokens — fait, voir ci-dessous.
 2. Layout global et sidebar — fait, voir ci-dessous.
 3. Extraction des couvertures (PDF, M4B, vidéo), cache hors bibliothèque,
-   jamais écrites dedans ; placeholder par type sinon.
+   jamais écrites dedans ; placeholder par type sinon — fait, voir
+   ci-dessous.
 4. Écran Bibliothèque : recherche, filtres, grille, cartes.
 5. Responsive.
 6. Fiche de contenu.
@@ -403,6 +409,52 @@ le logo, donc pas concerné par l'interdiction de recréer le logo en SVG.
 Contenu de chaque page (grille, fiche, lecteur, notes orphelines) :
 inchangé dans cette tranche, simplement replacé à côté de la sidebar
 dans `.app-main`. Leur reconstruction vient avec les tranches 4, 6 et 7.
+
+### Tranche 3 — extraction des couvertures (fait)
+
+`covers.py`, aucune nouvelle dépendance : `ffmpeg` et `pdftoppm`
+(poppler-utils) étaient déjà installés sur la machine, appelés en
+sous-processus comme `ffprobe` l'est déjà dans library_index.py.
+
+Cache dans `<dossier de la base>/covers/<item_id>.jpg` — jamais dans la
+bibliothèque, jamais suivi par git (déjà hors du dépôt de toute façon,
+entrée `.gitignore` ajoutée par précaution). Ordre de priorité par
+item :
+
+1. Une image déjà présente dans le dossier de l'item (`resources` avec
+   `resource_type = 'image'`) — recopiée en JPEG à taille plafonnée
+   (480px) plutôt qu'utilisée telle quelle, pour un format uniforme.
+2. book/book_audio : première page du PDF (`pdftoppm -singlefile`,
+   évite le suffixe de page qu'il ajoute sinon).
+3. audiobook/book_audio : pochette intégrée au M4B (`ffmpeg`, réencodée
+   en JPEG — le flux copié tel quel donnerait un format variable selon
+   le fichier).
+4. course : une frame de la première vidéo, à 10% de sa durée (plafond
+   15s, jamais avant 1s) — jamais la première seconde, souvent un écran
+   noir ou un générique.
+
+Si rien de tout ça n'aboutit (pas de média du bon type, outil en échec,
+fichier illisible) : aucune erreur, aucun fichier en cache, l'item
+reste dans la grille avec le badge de couleur par type déjà existant —
+vérifié avec le livre audio de test, qui n'a pas de pochette intégrée.
+
+Ni le scan ni la web app ne déclenchent d'extraction : c'est un choix
+explicite, `library_index.py --covers` (manquantes) ou `--recovers`
+(tout, même déjà en cache) — mêmes noms de logique que `--probe`/
+`--reprobe`. L'app web se contente de lire le cache (`GET /cover/<id>`,
+404 si absent) ; `library_grid.html` affiche l'image si elle existe,
+sinon retombe sur l'emoji par type comme avant.
+
+Non testé en pytest (nécessiterait des fichiers M4B/vidéo valides
+synthétisés) : l'extraction M4B et vidéo, vérifiées à la main sur la
+vraie bibliothèque de test à la place. Testé en pytest : l'extraction
+PDF (avec un PDF minimal écrit à la main, `pdftoppm` s'en accommode
+sans xref complet), et toute la logique de cache/priorité/repli avec
+des extracteurs remplacés.
+
+La carte de la grille n'est pas encore celle de la spec (16:9, badge,
+auteur...) — seul le remplacement emoji -> image a été branché pour
+vérifier le mécanisme. La vraie carte vient en tranche 4.
 
 ## Objectif suivant
 
