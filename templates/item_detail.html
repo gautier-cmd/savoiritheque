@@ -49,14 +49,9 @@
             <h1>{{ item['title'] }}</h1>
             {% if hero.author %}<p class="hero-author">{{ hero.author }}</p>{% endif %}
 
-            <div class="hero-meta">
-                {% if total_duration %}<span>{{ format_duration(total_duration) }}</span>{% endif %}
-                <span>{{ chapters | sum(attribute='count') }} média(s)</span>
-                {% if chapters | selectattr('parent_path') | list | length %}
-                <span>{{ chapters | selectattr('parent_path') | list | length }} chapitre(s)</span>
-                {% endif %}
-                {% if hero.year %}<span>{{ hero.year }}</span>{% endif %}
-            </div>
+            {% if hero_meta %}
+            <div class="hero-meta">{{ hero_meta }}</div>
+            {% endif %}
 
             <div class="hero-actions">
                 {% if first_video_id %}
@@ -207,7 +202,7 @@
             <summary>
                 <span class="chevron">›</span>
                 <span class="chapter-title">{{ chapter.parent_path if chapter.parent_path else 'Racine' }}</span>
-                <span class="chapter-meta">{{ chapter.count }} média(s) · {{ format_duration(chapter.duration) }}</span>
+                <span class="chapter-meta">{{ chapter.meta }}</span>
             </summary>
             <div class="programme-media">
                 {% for media in chapter.media %}

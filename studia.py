@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import argparse
 import mimetypes
+import re
+from datetime import date
 from pathlib import Path
 
 from flask import Flask, abort, redirect, render_template, request, send_file, url_for
@@ -39,9 +41,75 @@ HERO_YEAR_LABELS = {"publié", "date de publication", "année"}
 # les répéter dans la fiche technique extraite de la présentation.
 PRESENTATION_FACTS_DUPLICATED_BY_BOOK_METADATA = {"auteur", "autrice", "éditeur", "editeur"}
 
+# Mot au pluriel selon le type des médias réellement présents dans
+# l'item (pas selon son item_type, qui peut mélanger les deux — cas
+# book_audio : livre + audio dans les mêmes médias).
+MEDIA_TYPE_LABELS = {"video": "vidéos", "audio": "pistes audio", "book": "documents"}
+
+# Une année à 4 chiffres, jamais un fragment d'un nombre plus long
+# (ex. une résolution "1920x1080" ne doit jamais matcher "1920").
+_YEAR_PATTERN = re.compile(r"(?<!\d)(\d{4})(?!\d)")
+
 
 def badge_label(item_type: str) -> str:
     return BADGE_LABELS.get(item_type, item_type.upper())
+
+
+def _extract_year(text: str) -> str | None:
+    """Premier nombre à 4 chiffres plausible comme année dans un texte
+    libre (borne haute calculée à l'exécution, jamais figée) — ni un
+    nom de logiciel, ni une résolution, ni une taille de fichier.
+
+    Le champ vient d'un libellé de date (voir HERO_YEAR_LABELS) : le
+    premier candidat valide rencontré est donc aussi celui qui suit le
+    plus immédiatement ce libellé.
+    """
+
+    current_year = date.today().year
+    for match in _YEAR_PATTERN.finditer(text):
+        year = int(match.group(1))
+        if 1900 <= year <= current_year:
+            return match.group(1)
+    return None
+
+
+def _media_label(count: int, distinct_type_count: int, sample_type: str | None) -> str | None:
+    """Compteur de médias à afficher, ou None pour le masquer.
+
+    Masqué à 0 ou 1 (un seul élément ne dit rien qu'on ne voie déjà
+    ailleurs sur la fiche) — jamais selon l'item_type, qui peut
+    mélanger plusieurs media_type (book_audio)."""
+
+    if count < 2:
+        return None
+    if distinct_type_count == 1:
+        label = MEDIA_TYPE_LABELS.get(sample_type, "médias")
+    else:
+        label = "médias"
+    return f"{count} {label}"
+
+
+def describe_media_count(media_rows) -> str | None:
+    types = {m["media_type"] for m in media_rows}
+    sample_type = next(iter(types)) if len(types) == 1 else None
+    return _media_label(len(media_rows), len(types), sample_type)
+
+
+def describe_count(count: int, plural_word: str) -> str | None:
+    """Compteur générique (ressources, chapitres...), masqué à 0 ou 1."""
+
+    if count < 2:
+        return None
+    return f"{count} {plural_word}"
+
+
+def build_meta_line(*segments: str | None) -> str:
+    """Assemble des segments de métadonnées courtes avec un séparateur
+    « · », en écartant ceux qui sont vides — jamais de séparateur en
+    tête, en fin, ou en double : il vient toujours d'un join, jamais
+    d'une concaténation conditionnelle segment par segment."""
+
+    return " · ".join(segment for segment in segments if segment)
 
 
 def fetch_video_media(conn, media_id: int):
@@ -137,7 +205,7 @@ def extract_hero_fields(presentation: dict | None, book: dict | None) -> dict:
                 author = ", ".join(run["text"] for run in fact["runs"])
             if label in HERO_YEAR_LABELS and year is None:
                 text = ", ".join(run["text"] for run in fact["runs"])
-                year = text[:4] if text[:4].isdigit() else text
+                year = _extract_year(text)
 
     if book and book["status"] == "validated":
         accepted = book["accepted"]
@@ -363,12 +431,16 @@ def build_programme_chapters(media_rows) -> list[dict]:
 
     chapters = []
     for parent_path, media_list in group_by_parent(media_rows):
+        duration = sum(m["duration_seconds"] or 0 for m in media_list)
         chapters.append(
             {
                 "parent_path": parent_path,
                 "media": media_list,
                 "count": len(media_list),
-                "duration": sum(m["duration_seconds"] or 0 for m in media_list),
+                "duration": duration,
+                "meta": build_meta_line(
+                    describe_media_count(media_list), format_duration(duration)
+                ),
             }
         )
 
@@ -481,6 +553,10 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
                     i.item_type,
                     (SELECT COUNT(*) FROM media m
                      WHERE m.item_id = i.id) AS media_count,
+                    (SELECT COUNT(DISTINCT media_type) FROM media m
+                     WHERE m.item_id = i.id) AS media_type_count,
+                    (SELECT media_type FROM media m
+                     WHERE m.item_id = i.id LIMIT 1) AS media_type_sample,
                     (SELECT COUNT(*) FROM resources r
                      WHERE r.item_id = i.id) AS resource_count,
                     (SELECT COUNT(DISTINCT parent_path) FROM media m
@@ -505,6 +581,15 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
                 url_for("item_cover", item_id=item["id"])
                 if cover_file.is_file()
                 else None
+            )
+            item["meta_line"] = build_meta_line(
+                _media_label(
+                    item["media_count"],
+                    item["media_type_count"],
+                    item["media_type_sample"],
+                ),
+                describe_count(item["resource_count"], "ressources"),
+                describe_count(item["chapter_count"], "chapitres"),
             )
             items.append(item)
 
@@ -617,6 +702,14 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
         )
         hero = extract_hero_fields(presentation, book)
 
+        chapter_count = len([c for c in chapters if c["parent_path"]])
+        hero_meta = build_meta_line(
+            format_duration(total_duration) if total_duration else None,
+            describe_media_count(media_rows),
+            describe_count(chapter_count, "chapitres"),
+            hero["year"],
+        )
+
         conn = connect_database(app.config["DB_PATH"])
         try:
             note = fetch_note(conn, item["library_path"])
@@ -632,6 +725,7 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
             presentation_facts=presentation_facts,
             book=book,
             hero=hero,
+            hero_meta=hero_meta,
             first_video_id=first_video_id,
             total_duration=total_duration,
             note_text=note["text"] if note else "",

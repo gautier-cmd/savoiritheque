@@ -35,11 +35,9 @@
             <div class="card-body">
                 <span class="badge">{{ badge_label(item['item_type']) }}</span>
                 <h2>{{ item['title'] }}</h2>
-                <div class="meta">
-                    {{ item['media_count'] }} média(s)
-                    {% if item['resource_count'] %}· {{ item['resource_count'] }} ressource(s){% endif %}
-                    {% if item['chapter_count'] %}· {{ item['chapter_count'] }} chapitre(s){% endif %}
-                </div>
+                {% if item['meta_line'] %}
+                <div class="meta">{{ item['meta_line'] }}</div>
+                {% endif %}
                 <div class="meta">{{ format_duration(item['total_duration']) }}</div>
             </div>
         </a>

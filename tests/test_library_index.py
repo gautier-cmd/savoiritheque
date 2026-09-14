@@ -131,9 +131,9 @@ def test_parent_of() -> None:
 def test_format_duration() -> None:
     assert format_duration(None) == "—"
     assert format_duration(0) == "—"
-    assert format_duration(45) == "45s"
-    assert format_duration(125) == "2m05"
-    assert format_duration(3725) == "1h02"
+    assert format_duration(45) == "45 s"
+    assert format_duration(125) == "2 min 05"
+    assert format_duration(3725) == "1 h 02"
 
 
 def test_probe_duration_sur_faux_fichier(tmp_path: Path) -> None:
