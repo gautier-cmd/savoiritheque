@@ -583,6 +583,14 @@ PDF (PDF.js). EPUB plus tard.
 Progression selon le type : secondes pour vidéo et audio, page pour PDF,
 position pour EPUB.
 
+## Méthode — backlog
+
+Avant de commencer une tranche, relire le backlog et signaler les
+lignes qui touchent le périmètre de cette tranche. Une ligne concernée
+doit être traitée ou explicitement écartée avec sa raison, jamais
+ignorée en silence. Ne pas coder quelque chose qui rend une ligne du
+backlog plus difficile à corriger sans le signaler d'abord.
+
 ## Backlog (ne pas traiter sans demande explicite)
 
 - `fetch_item_author()` (grille) relit et reparse la page de
