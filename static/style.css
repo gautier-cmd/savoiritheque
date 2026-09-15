@@ -115,6 +115,18 @@ body.relaxed {
 }
 
 .sidebar-tagline {
+    /* Même point de départ et même largeur que le texte des entrées
+       de navigation — recalculés à partir des mêmes ingrédients que
+       .sidebar-nav-item (padding, icône, espace) plutôt que recopiés
+       en dur, pour ne pas se déphaser si ces valeurs changent.
+       .sidebar-footer contribue déjà --space-8 de padding, à
+       soustraire. Deux valeurs restent en dur faute de token : la
+       largeur de la sidebar (240px, .sidebar) et la taille de l'icône
+       (20px, .sidebar-nav-item .icon) — à mettre à jour ici si l'une
+       des deux change, comme pour les seuils de breakpoint (voir
+       tokens.css). */
+    margin-left: calc(var(--space-12) + 20px + var(--space-12) - var(--space-8));
+    max-width: calc(240px - (var(--space-16) * 2) - (var(--space-12) * 2) - 20px - var(--space-12));
     font-size: var(--font-size-annotation);
     color: var(--color-text-tertiary);
     line-height: var(--line-height-metadata);
