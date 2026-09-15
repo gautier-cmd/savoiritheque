@@ -37,9 +37,32 @@ BADGE_LABELS = {
 HERO_AUTHOR_LABELS = {"auteur", "autrice", "auteurs", "formateur", "formateurs"}
 HERO_YEAR_LABELS = {"publié", "date de publication", "année"}
 
-# Champs que la carte Métadonnées (book_metadata) affiche déjà : ne pas
-# les répéter dans la fiche technique extraite de la présentation.
-PRESENTATION_FACTS_DUPLICATED_BY_BOOK_METADATA = {"auteur", "autrice", "éditeur", "editeur"}
+# Faits de présentation qui ont désormais un champ résolu équivalent
+# ailleurs sur la fiche (voir resolve_metadata_fields) : ne plus les
+# repasser tels quels, sous peine de répéter la même information avec
+# un libellé différent. Couvre aussi bien "Auteur"/"Autrice" qu'un
+# "Formateur(s)" de formation — même concept, mots différents selon
+# qui a écrit le fichier.
+PRESENTATION_FACTS_RESOLVED_ELSEWHERE = HERO_AUTHOR_LABELS | HERO_YEAR_LABELS | {"éditeur", "editeur"}
+
+# Faits toujours supplantés par un comptage réel du scanner (durée,
+# structure, ressources) : contrairement aux champs ci-dessus, le
+# scanner a TOUJOURS une valeur, donc le texte annoncé par le fichier
+# n'est jamais la seule information disponible — il ne s'affiche donc
+# plus jamais, même sans fiche livre validée.
+PRESENTATION_FACTS_SUPERSEDED_BY_SCANNER = {"durée totale", "structure", "ressources"}
+
+# Remplace le libellé écrit dans le fichier de présentation à
+# l'affichage seulement (jamais dans le fichier) : "Source" y désigne
+# la plateforme de la formation, pas la provenance d'une métadonnée
+# bibliographique validée (carte Métadonnées, "Provenance").
+PRESENTATION_LABEL_DISPLAY_OVERRIDES = {"source": "Plateforme"}
+
+BOOK_SOURCE_LABELS = {
+    "google_books": "Google Books",
+    "open_library": "Open Library",
+    "manual": "Saisie manuelle",
+}
 
 # Mot au pluriel selon le type des médias réellement présents dans
 # l'item (pas selon son item_type, qui peut mélanger les deux — cas
@@ -185,59 +208,149 @@ def fetch_book_candidates(conn, item_id: int):
     ).fetchall()
 
 
-def extract_hero_fields(presentation: dict | None, book: dict | None) -> dict:
-    """Auteur et année à afficher dans le hero, choisis parmi les
-    sources déjà extraites — présentation locale d'abord, puis les
-    métadonnées de livre validées.
+def extract_hero_fields(metadata_fields: list[dict]) -> dict:
+    """Auteur et année à afficher dans le hero — jamais une résolution
+    indépendante : les mêmes valeurs déjà tranchées par
+    resolve_metadata_fields pour l'onglet À propos (fiche livre
+    validée d'abord, présentation locale ensuite), pour que le hero et
+    l'onglet ne puissent plus jamais afficher deux valeurs différentes
+    du même fait.
 
-    Ne relit rien, ne devine rien de nouveau : recombine juste des
-    valeurs déjà là pour éviter de les chercher deux fois dans le
-    gabarit.
+    Ne reprend que la valeur, jamais la source : le hero reste une
+    ligne compacte, sans attribution visible — l'affichage de la
+    source est réservé à l'onglet À propos.
     """
 
-    author = None
-    year = None
+    author_field = next(
+        (field for field in metadata_fields if field["label"] in ("Auteur", "Formateur(s)")),
+        None,
+    )
+    year_field = next(
+        (field for field in metadata_fields if field["label"] == "Date de publication"), None
+    )
 
+    return {
+        "author": ", ".join(run["text"] for run in author_field["runs"]) if author_field else None,
+        "year": ", ".join(run["text"] for run in year_field["runs"]) if year_field else None,
+    }
+
+
+def plain_run(text: str) -> list[dict]:
+    """Enveloppe une chaîne simple dans la même forme que les "runs"
+    extraits d'une page de présentation, pour que le composant
+    d'affichage n'ait qu'une seule forme de valeur à connaître."""
+
+    return [{"text": text, "href": None}]
+
+
+def resolve_presentation_facts(facts: list[dict], book_validated: bool) -> list[dict]:
+    """Faits de présentation à afficher tels quels : ceux qui n'ont pas
+    de champ résolu équivalent ailleurs sur la fiche (voir
+    resolve_metadata_fields), et — pour l'ISBN, imbriqué dans
+    "Identifiants" avec un lien Google Books — ceux qui ne sont pas
+    devenus redondants avec une fiche livre validée.
+
+    Le contenu de la présentation n'est jamais modifié : seul
+    l'affichage évite de répéter une information, et remplace un
+    libellé quand deux concepts différents partagent le même mot dans
+    des fichiers différents (voir PRESENTATION_LABEL_DISPLAY_OVERRIDES).
+    """
+
+    kept = []
+    for fact in facts:
+        label = fact["label"].strip().lower()
+        if label in PRESENTATION_FACTS_RESOLVED_ELSEWHERE:
+            continue
+        if label in PRESENTATION_FACTS_SUPERSEDED_BY_SCANNER:
+            continue
+        if label == "identifiants" and book_validated:
+            continue
+        display_label = PRESENTATION_LABEL_DISPLAY_OVERRIDES.get(label, fact["label"])
+        kept.append({"label": display_label, "runs": fact["runs"]})
+
+    return kept
+
+
+def resolve_metadata_fields(
+    item_type: str, presentation: dict | None, book: dict | None
+) -> list[dict]:
+    """Un seul champ résolu par concept bibliographique (Auteur ou
+    Formateur(s) selon le type, Éditeur, Date de publication ou Année,
+    ISBN), avec sa source — jamais les deux valeurs à la fois, jamais
+    la présentation en cas de fiche livre validée.
+
+    book_metadata validé fait toujours foi sur la présentation locale,
+    car il vient d'une validation explicite ; la présentation reste le
+    seul repli tant qu'aucune fiche n'a été validée (systématique pour
+    une formation, qui n'a pas de workflow book_metadata).
+    """
+
+    facts_by_label: dict[str, dict] = {}
     if presentation:
         for fact in presentation["facts"]:
-            label = fact["label"].strip().lower()
-            if label in HERO_AUTHOR_LABELS and author is None:
-                author = ", ".join(run["text"] for run in fact["runs"])
-            if label in HERO_YEAR_LABELS and year is None:
-                text = ", ".join(run["text"] for run in fact["runs"])
-                year = _extract_year(text)
+            facts_by_label.setdefault(fact["label"].strip().lower(), fact)
 
-    if book and book["status"] == "validated":
-        accepted = book["accepted"]
-        if author is None and accepted["authors"]:
-            author = accepted["authors"]
-        if year is None and accepted["published_year"]:
-            year = accepted["published_year"]
+    accepted = book["accepted"] if book and book["status"] == "validated" else None
+    accepted_source = (
+        BOOK_SOURCE_LABELS.get(accepted["source"], accepted["source"])
+        if accepted
+        else None
+    )
 
-    return {"author": author, "year": year}
+    author_label = "Formateur(s)" if item_type == "course" else "Auteur"
 
+    fields = []
 
-def filter_duplicated_presentation_facts(
-    facts: list[dict], book: dict | None
-) -> list[dict]:
-    """Retire de la fiche technique de présentation les champs déjà
-    affichés par la carte Métadonnées, une fois qu'elle est validée.
+    if accepted and accepted["authors"]:
+        fields.append(
+            {"label": "Auteur", "runs": plain_run(accepted["authors"]), "source": accepted_source}
+        )
+    else:
+        fact = next(
+            (facts_by_label[key] for key in HERO_AUTHOR_LABELS if key in facts_by_label), None
+        )
+        if fact:
+            fields.append({"label": author_label, "runs": fact["runs"], "source": "Présentation locale"})
 
-    Le contenu de la présentation n'est pas modifié (Gautier a demandé
-    de ne pas y toucher) : seul l'affichage évite de montrer deux fois
-    Auteur/Éditeur. Les champs propres à la présentation (langue,
-    sujets, identifiants...) restent affichés.
-    """
+    if accepted and accepted["publisher"]:
+        fields.append(
+            {"label": "Éditeur", "runs": plain_run(accepted["publisher"]), "source": accepted_source}
+        )
+    else:
+        fact = facts_by_label.get("éditeur") or facts_by_label.get("editeur")
+        if fact:
+            fields.append({"label": "Éditeur", "runs": fact["runs"], "source": "Présentation locale"})
 
-    if not book or book["status"] != "validated":
-        return facts
+    if accepted and accepted["published_year"]:
+        fields.append(
+            {
+                "label": "Date de publication",
+                "runs": plain_run(accepted["published_year"]),
+                "source": accepted_source,
+            }
+        )
+    else:
+        fact = next(
+            (facts_by_label[key] for key in HERO_YEAR_LABELS if key in facts_by_label), None
+        )
+        if fact:
+            text = ", ".join(run["text"] for run in fact["runs"])
+            year = _extract_year(text)
+            if year:
+                fields.append(
+                    {
+                        "label": "Date de publication",
+                        "runs": plain_run(year),
+                        "source": "Présentation locale",
+                    }
+                )
 
-    return [
-        fact
-        for fact in facts
-        if fact["label"].strip().lower()
-        not in PRESENTATION_FACTS_DUPLICATED_BY_BOOK_METADATA
-    ]
+    if accepted and accepted["isbn"]:
+        fields.append(
+            {"label": "ISBN", "runs": plain_run(accepted["isbn"]), "source": accepted_source}
+        )
+
+    return fields
 
 
 def fetch_book_state(conn, item_id: int) -> dict:
@@ -695,12 +808,14 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
             finally:
                 conn.close()
 
+        book_validated = bool(book and book["status"] == "validated")
         presentation_facts = (
-            filter_duplicated_presentation_facts(presentation["facts"], book)
+            resolve_presentation_facts(presentation["facts"], book_validated)
             if presentation
             else []
         )
-        hero = extract_hero_fields(presentation, book)
+        metadata_fields = resolve_metadata_fields(item["item_type"], presentation, book)
+        hero = extract_hero_fields(metadata_fields)
 
         chapter_count = len([c for c in chapters if c["parent_path"]])
         hero_meta = build_meta_line(
@@ -723,7 +838,9 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
             resources=resources,
             presentation=presentation,
             presentation_facts=presentation_facts,
+            metadata_fields=metadata_fields,
             book=book,
+            book_source_labels=BOOK_SOURCE_LABELS,
             hero=hero,
             hero_meta=hero_meta,
             first_video_id=first_video_id,

@@ -573,6 +573,13 @@ body.page-grid .badge {
     color: var(--color-accent);
 }
 
+.fact-source {
+    display: inline-block;
+    margin-left: var(--space-8);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-metadata);
+}
+
 .presentation-heading {
     color: var(--color-accent);
     margin: var(--space-16) 0 var(--space-8);

@@ -585,6 +585,14 @@ position pour EPUB.
 
 ## Backlog (ne pas traiter sans demande explicite)
 
+- `accept_book_candidate` et `save_manual_candidate` écrasent
+  silencieusement un candidat accepté d'origine manuelle — une saisie
+  manuelle ne doit jamais être remplacée par une source automatique
+  sans confirmation explicite. Découvert en écrivant la résolution des
+  champs de métadonnées (tranche "restructuration visuelle des
+  métadonnées") : `resolve_metadata_fields` ne fait que lire le seul
+  candidat `accepted` existant, il n'y a rien à arbitrer à son niveau —
+  le problème est dans le workflow d'acceptation, pas l'affichage.
 - Fichier renommé = nouvel id = progression perdue. Appariement par
   empreinte à prévoir. (Ne concerne plus les notes : elles survivent à
   un renommage de dossier en devenant orphelines et récupérables, voir

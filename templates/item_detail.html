@@ -1,5 +1,6 @@
 {% extends "_base.html" %}
 {% from "_note_widget.html" import render_note, render_print_block %}
+{% from "_metadata_field.html" import metadata_field %}
 
 {% macro manual_form(item_id) %}
 <form class="manual-form" method="post" action="{{ url_for('book_manual', item_id=item_id) }}">
@@ -76,15 +77,13 @@
     </div>
 
     <div class="tab-panel" data-panel="apropos">
-        {% if presentation_facts %}
+        {% if metadata_fields or presentation_facts %}
         <dl class="facts">
+            {% for field in metadata_fields %}
+            {{ metadata_field(field.label, field.runs, field.source) }}
+            {% endfor %}
             {% for fact in presentation_facts %}
-            <div class="fact-row">
-                <dt>{{ fact.label }}</dt>
-                <dd>
-                    {% for run in fact.runs %}{% if run.href %}<a href="{{ run.href }}" target="_blank" rel="noopener">{{ run.text }}</a>{% else %}{{ run.text }}{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}
-                </dd>
-            </div>
+            {{ metadata_field(fact.label, fact.runs, "Présentation locale") }}
             {% endfor %}
         </dl>
         {% endif %}
@@ -103,22 +102,17 @@
                 <div class="presentation-note">{{ block.text }}</div>
                 {% endif %}
             {% endfor %}
-        {% elif not presentation_facts %}
+        {% elif not metadata_fields and not presentation_facts %}
         <p class="hint">Pas de description disponible.</p>
         {% endif %}
 
         {% if book %}
-        {% set source_labels = {'google_books': 'Google Books', 'open_library': 'Open Library', 'manual': 'Saisie manuelle'} %}
         <div class="card" id="metadonnees">
-            <h3>Métadonnées</h3>
+            <h3>Gestion des métadonnées</h3>
 
             {% if book.status == 'validated' %}
             <dl class="facts">
-                {% if book.accepted['authors'] %}<div class="fact-row"><dt>Auteur</dt><dd>{{ book.accepted['authors'] }}</dd></div>{% endif %}
-                {% if book.accepted['publisher'] %}<div class="fact-row"><dt>Éditeur</dt><dd>{{ book.accepted['publisher'] }}</dd></div>{% endif %}
-                {% if book.accepted['published_year'] %}<div class="fact-row"><dt>Année</dt><dd>{{ book.accepted['published_year'] }}</dd></div>{% endif %}
-                {% if book.accepted['isbn'] %}<div class="fact-row"><dt>ISBN</dt><dd>{{ book.accepted['isbn'] }}</dd></div>{% endif %}
-                <div class="fact-row"><dt>Source</dt><dd>{{ source_labels.get(book.accepted['source'], book.accepted['source']) }}</dd></div>
+                {{ metadata_field("Provenance", [{'text': book_source_labels.get(book.accepted['source'], book.accepted['source']), 'href': none}]) }}
             </dl>
             {% if book.accepted['cover_url'] %}
             <img class="candidate-cover" style="width:90px; margin-top:8px;" src="{{ book.accepted['cover_url'] }}" alt="Couverture">
@@ -142,7 +136,7 @@
                 <div class="candidate-card">
                     {% if candidate['cover_url'] %}<img class="candidate-cover" src="{{ candidate['cover_url'] }}" alt="">{% endif %}
                     <div class="candidate-info">
-                        <div class="candidate-source">{{ source_labels.get(candidate['source'], candidate['source']) }}</div>
+                        <div class="candidate-source">{{ book_source_labels.get(candidate['source'], candidate['source']) }}</div>
                         <strong>{{ candidate['title'] }}</strong><br>
                         {{ candidate['authors'] or '—' }}{% if candidate['publisher'] %} — {{ candidate['publisher'] }}{% endif %}{% if candidate['published_year'] %} ({{ candidate['published_year'] }}){% endif %}
                         {% if candidate['isbn'] %}<br><span class="file-meta">ISBN {{ candidate['isbn'] }}</span>{% endif %}
@@ -183,7 +177,7 @@
                 {% for candidate in book.rejected %}
                 <div class="candidate-card">
                     <div class="candidate-info">
-                        <div class="candidate-source">{{ source_labels.get(candidate['source'], candidate['source']) }}</div>
+                        <div class="candidate-source">{{ book_source_labels.get(candidate['source'], candidate['source']) }}</div>
                         <strong>{{ candidate['title'] }}</strong> — {{ candidate['authors'] or '—' }}
                         <div class="candidate-actions">
                             <form method="post" action="{{ url_for('book_candidate_unreject', item_id=item['id'], candidate_id=candidate['id']) }}">

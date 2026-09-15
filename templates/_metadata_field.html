@@ -1,0 +1,11 @@
+{% macro metadata_field(label, runs, source=none) %}
+{% if runs %}
+<div class="fact-row">
+    <dt>{{ label }}</dt>
+    <dd>
+        {% for run in runs %}{% if run.href %}<a href="{{ run.href }}" target="_blank" rel="noopener">{{ run.text }}</a>{% else %}{{ run.text }}{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}
+        {% if source %}<span class="fact-source">{{ source }}</span>{% endif %}
+    </dd>
+</div>
+{% endif %}
+{% endmacro %}
