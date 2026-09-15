@@ -316,8 +316,137 @@ body.page-grid .header nav a:hover {
 
 .hero-actions {
     display: flex;
+    align-items: center;
     gap: var(--space-12);
     margin-top: var(--space-12);
+}
+
+/* Menu ⋮ du hero — troisième action, jamais aussi marquant que le
+   CTA : pas de fond, pas de bordure, juste le glyphe. */
+.hero-menu {
+    position: relative;
+}
+
+.hero-menu > summary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-md);
+    color: var(--color-text-secondary);
+    font-size: 1.25rem;
+    line-height: 1;
+    cursor: pointer;
+    list-style: none;
+}
+
+.hero-menu > summary::-webkit-details-marker {
+    display: none;
+}
+
+.hero-menu > summary:hover {
+    background: var(--color-surface-2);
+    color: var(--color-text);
+}
+
+.hero-menu[open] > summary {
+    background: var(--color-surface-2);
+    color: var(--color-text);
+}
+
+.hero-menu-list {
+    position: absolute;
+    top: calc(100% + var(--space-4));
+    right: 0;
+    z-index: 10;
+    min-width: 240px;
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.hero-menu-item {
+    background: none;
+    border: none;
+    text-align: left;
+    padding: var(--space-8) var(--space-12);
+    border-radius: var(--radius-sm);
+    color: var(--color-text);
+    font-size: var(--font-size-nav);
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.hero-menu-item:hover,
+.hero-menu-item:focus-visible {
+    background: var(--color-nav-hover-bg);
+    outline: none;
+}
+
+/* Modals (métadonnées, couverture, informations techniques) */
+
+dialog.modal {
+    /* Centrage explicite : le reset global "* { margin: 0 }" annule
+       le margin:auto dont <dialog> dépend normalement pour se centrer
+       tout seul. */
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--color-surface);
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-20);
+    width: min(520px, calc(100vw - var(--space-32)));
+    max-height: calc(100vh - var(--space-64));
+    overflow-y: auto;
+}
+
+dialog.modal::backdrop {
+    background: rgba(0, 0, 0, 0.6);
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0 0 var(--space-16);
+}
+
+.modal-header h3 {
+    color: var(--color-accent);
+    font-size: var(--font-size-card-title);
+    font-weight: var(--font-weight-semibold);
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    color: var(--color-text-secondary);
+    font-size: 1rem;
+    cursor: pointer;
+    padding: var(--space-4);
+}
+
+.modal-close:hover {
+    color: var(--color-text);
+}
+
+.modal-cover-preview {
+    width: 140px;
+    aspect-ratio: 3 / 4;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    object-fit: cover;
+    margin-bottom: var(--space-12);
 }
 
 .btn-primary {

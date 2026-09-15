@@ -278,14 +278,18 @@ def extract_hero_fields(metadata_fields: list[dict]) -> dict:
     Ne reprend que la valeur, jamais la source : le hero reste une
     ligne compacte, sans attribution visible — l'affichage de la
     source est réservé à l'onglet À propos.
+
+    Retrouve les champs par leur clé stable ("author", "published_date"),
+    pas par le texte de leur libellé affiché : un libellé change selon
+    le type ("Auteur" vs "Formateur(s)") ou pourrait être renommé sans
+    prévenir, une clé non.
     """
 
     author_field = next(
-        (field for field in metadata_fields if field["label"] in ("Auteur", "Formateur(s)")),
-        None,
+        (field for field in metadata_fields if field["key"] == "author"), None
     )
     year_field = next(
-        (field for field in metadata_fields if field["label"] == "Date de publication"), None
+        (field for field in metadata_fields if field["key"] == "published_date"), None
     )
 
     return {
@@ -330,6 +334,29 @@ def resolve_presentation_facts(facts: list[dict], book_validated: bool) -> list[
     return kept
 
 
+def describe_cover_source(item: dict, resources, media_rows) -> str:
+    """D'où vient la couverture en cache, en réappliquant la même
+    priorité que covers.py (image du dossier, puis PDF/M4B/vidéo selon
+    le type) — jamais stockée nulle part, donc reconstruite ici pour
+    l'affichage plutôt que devinée. Ne détecte pas un échec silencieux
+    d'une étape (ex. copie d'image ratée) : décrit le premier candidat
+    trouvé dans l'ordre de priorité, pas une garantie absolue.
+    """
+
+    if not item["cover_url"]:
+        return "Aucune — le visuel de remplacement par type s'affiche à la place."
+
+    if any(r["resource_type"] == "image" for r in resources):
+        return "Image trouvée dans le dossier de l'item."
+    if item["item_type"] == "book" and any(m["extension"] == ".pdf" for m in media_rows):
+        return "Première page du PDF."
+    if item["item_type"] == "audiobook" and any(m["extension"] == ".m4b" for m in media_rows):
+        return "Pochette intégrée au fichier M4B."
+    if item["item_type"] == "course" and any(m["media_type"] == "video" for m in media_rows):
+        return "Image extraite d'une vidéo."
+    return "Origine non déterminée."
+
+
 def resolve_metadata_fields(
     item_type: str, presentation: dict | None, book: dict | None
 ) -> list[dict]:
@@ -362,27 +389,47 @@ def resolve_metadata_fields(
 
     if accepted and accepted["authors"]:
         fields.append(
-            {"label": "Auteur", "runs": plain_run(accepted["authors"]), "source": accepted_source}
+            {
+                "key": "author",
+                "label": "Auteur",
+                "runs": plain_run(accepted["authors"]),
+                "source": accepted_source,
+            }
         )
     else:
         fact = next(
             (facts_by_label[key] for key in HERO_AUTHOR_LABELS if key in facts_by_label), None
         )
         if fact:
-            fields.append({"label": author_label, "runs": fact["runs"], "source": "Présentation locale"})
+            fields.append(
+                {
+                    "key": "author",
+                    "label": author_label,
+                    "runs": fact["runs"],
+                    "source": "Présentation locale",
+                }
+            )
 
     if accepted and accepted["publisher"]:
         fields.append(
-            {"label": "Éditeur", "runs": plain_run(accepted["publisher"]), "source": accepted_source}
+            {
+                "key": "publisher",
+                "label": "Éditeur",
+                "runs": plain_run(accepted["publisher"]),
+                "source": accepted_source,
+            }
         )
     else:
         fact = facts_by_label.get("éditeur") or facts_by_label.get("editeur")
         if fact:
-            fields.append({"label": "Éditeur", "runs": fact["runs"], "source": "Présentation locale"})
+            fields.append(
+                {"key": "publisher", "label": "Éditeur", "runs": fact["runs"], "source": "Présentation locale"}
+            )
 
     if accepted and accepted["published_year"]:
         fields.append(
             {
+                "key": "published_date",
                 "label": "Date de publication",
                 "runs": plain_run(accepted["published_year"]),
                 "source": accepted_source,
@@ -398,6 +445,7 @@ def resolve_metadata_fields(
             if year:
                 fields.append(
                     {
+                        "key": "published_date",
                         "label": "Date de publication",
                         "runs": plain_run(year),
                         "source": "Présentation locale",
@@ -406,7 +454,12 @@ def resolve_metadata_fields(
 
     if accepted and accepted["isbn"]:
         fields.append(
-            {"label": "ISBN", "runs": plain_run(accepted["isbn"]), "source": accepted_source}
+            {
+                "key": "isbn",
+                "label": "ISBN",
+                "runs": plain_run(accepted["isbn"]),
+                "source": accepted_source,
+            }
         )
 
     return fields
@@ -829,7 +882,7 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
         try:
             item = conn.execute(
                 """
-                SELECT id, title, item_type, library_path
+                SELECT id, title, item_type, library_path, created_at, updated_at
                 FROM items WHERE id = ?
                 """,
                 (item_id,),
@@ -886,6 +939,8 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
         resources = [
             r for r in resources if r["resource_type"] != "presentation"
         ]
+
+        cover_source = describe_cover_source(item, resources, media_rows)
 
         presentation = None
         if presentation_resource is not None:
@@ -950,6 +1005,7 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
             badge_label=badge_label,
             clean_file_title=clean_file_title,
             resource_type_label=resource_type_label,
+            cover_source=cover_source,
         )
 
     @app.route("/item/<int:item_id>/note", methods=["POST"])

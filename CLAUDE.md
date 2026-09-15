@@ -653,6 +653,13 @@ backlog plus difficile à corriger sans le signaler d'abord.
   l'ordre (image du dossier, première page du PDF, pochette M4B,
   image de vidéo, placeholder) est fait depuis la tranche 3, pour la
   fiche comme pour la grille.
+- `describe_cover_source` (studia.py) réimplémente l'ordre de priorité
+  de covers.py pour afficher la provenance de la couverture dans les
+  informations techniques. Deux endroits à garder synchronisés : toute
+  modification de l'ordre dans covers.py doit être répercutée ici,
+  sinon le panneau ment sans erreur visible. À supprimer le jour où la
+  provenance sera stockée avec la couverture en cache plutôt que
+  reconstruite.
 - Métadonnées de formations par moissonnage des plateformes commerciales
   (TUTO.com, Udemy, LinkedIn, Elephorm...). Autorisé (usage strictement
   personnel, décision explicite de Gautier), mais pas encore fait : pas
