@@ -203,11 +203,12 @@
             </summary>
             <div class="programme-media">
                 {% for media in chapter.media %}
+                {% set filename = media['relative_path'].rsplit('/', 1)[-1] %}
                 <div class="file-row">
                     {% if media['media_type'] == 'video' %}
-                    <a href="{{ url_for('watch_video', media_id=media['id']) }}">{{ media['relative_path'].rsplit('/', 1)[-1] }}</a>
+                    <a class="file-title" href="{{ url_for('watch_video', media_id=media['id']) }}" title="{{ filename }}">{{ clean_file_title(filename) }}</a>
                     {% else %}
-                    <span>{{ media['relative_path'].rsplit('/', 1)[-1] }}</span>
+                    <span class="file-title" title="{{ filename }}">{{ clean_file_title(filename) }}</span>
                     {% endif %}
                     <span class="file-meta">{{ format_duration(media['duration_seconds']) }}</span>
                 </div>
@@ -222,9 +223,10 @@
 
     <div class="tab-panel hidden" data-panel="ressources">
         {% for resource in resources %}
+        {% set filename = resource['relative_path'].rsplit('/', 1)[-1] %}
         <div class="file-row">
-            <span>{{ resource['relative_path'].rsplit('/', 1)[-1] }}</span>
-            <span class="file-meta">{{ resource['resource_type'] }}</span>
+            <span class="file-title" title="{{ filename }}">{{ clean_file_title(filename) }}</span>
+            <span class="file-meta">{{ resource_type_label(resource['resource_type'], resource['extension']) }}</span>
         </div>
         {% endfor %}
         {% if not resources %}

@@ -73,9 +73,62 @@ MEDIA_TYPE_LABELS = {"video": "vidéos", "audio": "pistes audio", "book": "docum
 # (ex. une résolution "1920x1080" ne doit jamais matcher "1920").
 _YEAR_PATTERN = re.compile(r"(?<!\d)(\d{4})(?!\d)")
 
+# Types d'archive dont le nom d'usage diffère du format générique
+# "Archive" — .zip est de loin le plus courant dans la bibliothèque de
+# Gautier, distingué explicitement plutôt que fondu dans "Archive".
+_ZIP_EXTENSIONS = {".zip"}
+_ARCHIVE_EXTENSIONS = {".7z", ".rar", ".tar", ".gz", ".bz2", ".xz"}
+_SPREADSHEET_EXTENSIONS = {".xls", ".xlsx", ".xlsm", ".ods"}
+_SLIDESHOW_EXTENSIONS = {".ppt", ".pptx", ".odp"}
+
+# Types de ressources dont le libellé ne dépend pas de l'extension.
+RESOURCE_TYPE_LABELS = {
+    "resource_index": "Page de ressources",
+    "subtitle": "Sous-titres",
+    "image": "Image",
+}
+
 
 def badge_label(item_type: str) -> str:
     return BADGE_LABELS.get(item_type, item_type.upper())
+
+
+def clean_file_title(filename: str) -> str:
+    """Nom de fichier sans son extension technique — rien d'autre.
+
+    Ne touche pas à la ponctuation ni à l'orthographe du nom réel :
+    un remplacement partiel de séparateur (le numéro en tête, mais pas
+    les autres occurrences dans le reste du titre) produirait un titre
+    qui mélange deux conventions différentes, pire que l'original.
+    """
+
+    return Path(filename).stem
+
+
+def resource_type_label(resource_type: str, extension: str) -> str:
+    """Type de ressource comprehensible, dérivé de l'extension quand
+    le type brut du scanner ("document", "file") est trop générique
+    pour dire quoi que ce soit d'utile à l'affichage."""
+
+    if resource_type in RESOURCE_TYPE_LABELS:
+        return RESOURCE_TYPE_LABELS[resource_type]
+
+    ext = (extension or "").lower()
+
+    if ext == ".pdf":
+        return "PDF"
+    if ext in _ZIP_EXTENSIONS:
+        return "Archive ZIP"
+    if ext in _ARCHIVE_EXTENSIONS:
+        return "Archive"
+    if ext in _SPREADSHEET_EXTENSIONS:
+        return "Feuille de calcul"
+    if ext in _SLIDESHOW_EXTENSIONS:
+        return "Diaporama"
+    if resource_type == "document":
+        return "Document"
+
+    return "Fichier"
 
 
 def _extract_year(text: str) -> str | None:
@@ -849,6 +902,8 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
             note_updated_at=note["updated_at"] if note else None,
             format_duration=format_duration,
             badge_label=badge_label,
+            clean_file_title=clean_file_title,
+            resource_type_label=resource_type_label,
         )
 
     @app.route("/item/<int:item_id>/note", methods=["POST"])

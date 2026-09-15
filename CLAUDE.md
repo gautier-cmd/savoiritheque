@@ -585,6 +585,20 @@ position pour EPUB.
 
 ## Backlog (ne pas traiter sans demande explicite)
 
+- Les fichiers .mp4 des formations portent un tag `title` contenant le
+  vrai titre éditorial, avec accents et apostrophes (vérifié : 307/307
+  sur Copywriter et Motion Design). Ce titre diffère du nom de fichier
+  au-delà de la ponctuation et n'est pas toujours plus complet (ex.
+  004, dont le nom de fichier porte un sous-titre absent du tag). À
+  prévoir : lecture du tag par le scanner, stockage à côté du nom de
+  fichier sans le remplacer, règle de choix du titre affiché, et
+  comportement pour les fichiers sans tag. Aucun renommage de fichier.
+- `extract_hero_fields` retrouve l'auteur par correspondance sur le
+  texte du libellé ("Auteur" ou "Formateur(s)"). Un libellé est un
+  texte d'affichage, pas un identifiant : renommer `author_label` dans
+  `resolve_metadata_fields` ferait disparaître l'auteur du hero
+  silencieusement. À remplacer par une clé stable indépendante du
+  libellé affiché.
 - `accept_book_candidate` et `save_manual_candidate` écrasent
   silencieusement un candidat accepté d'origine manuelle — une saisie
   manuelle ne doit jamais être remplacée par une source automatique
