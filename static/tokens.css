@@ -61,6 +61,24 @@
     --color-border: #26323A;          /* bordure discrète */
     --color-progress-track: #29343B;  /* piste de progression inactive */
 
+    /* Badges par type (section 5) — valeurs définitives données par
+       Gautier. Étiquettes non interactives : pas de variante hover ni
+       de curseur pointeur tant qu'elles ne deviennent pas des filtres
+       cliquables — à définir à ce moment-là, pas avant. */
+    --color-badge-course-bg: #6A4036;
+    --color-badge-course-text: #F4D6CF;
+    --color-badge-book-bg: #6B4A1F;
+    --color-badge-book-text: #FFE2A8;
+    --color-badge-audiobook-bg: #1F5A52;
+    --color-badge-audiobook-text: #BFE8DF;
+
+    /* Livre audio : pas de valeur donnée (le spec ne couvre que
+       Formation/Livre/Audiobook) — provisoire, entre les teintes
+       Livre et Audiobook, aucun item de la bibliothèque de test n'est
+       de ce type. À remplacer si une valeur définitive est fournie. */
+    --color-badge-book-audio-bg: #4A5A1F;
+    --color-badge-book-audio-text: #E0EAB8;
+
     /* -----------------------------------------------------------
        Typographie
        ----------------------------------------------------------- */

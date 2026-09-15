@@ -97,9 +97,13 @@ body.relaxed {
     font-weight: var(--font-weight-semibold);
 }
 
+.sidebar-nav-item:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+}
+
 .sidebar-nav-item.disabled {
     color: var(--color-text-tertiary);
-    opacity: 0.55;
     cursor: default;
     pointer-events: none;
 }
@@ -146,7 +150,7 @@ body.page-orphans .container {
     background: var(--color-surface);
     padding: var(--space-20) 0;
     margin-bottom: var(--space-32);
-    border-bottom: 3px solid var(--color-accent);
+    border-bottom: 1px solid var(--color-border);
 }
 
 .header a {
@@ -217,6 +221,10 @@ body.page-grid .header nav a:hover {
     color: var(--color-text-tertiary);
 }
 
+.breadcrumb-current {
+    color: var(--color-text);
+}
+
 /* Hero de la fiche (section 21) */
 
 .hero {
@@ -243,14 +251,32 @@ body.page-grid .header nav a:hover {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 4em;
     background: var(--color-surface-2);
+    color: var(--color-text-tertiary);
 }
 
-.hero-cover .cover-placeholder.course { background: #7a2323; }
-.hero-cover .cover-placeholder.book { background: #234a7a; }
-.hero-cover .cover-placeholder.book_audio { background: #4a237a; }
-.hero-cover .cover-placeholder.audiobook { background: #237a5c; }
+/* Mêmes teintes que les badges (section 5) — une formation, un livre
+   ou un audiobook se reconnaît à la même couleur sur son badge et sur
+   son motif de couverture par défaut. */
+.hero-cover .cover-placeholder.course {
+    background: var(--color-badge-course-bg);
+    color: var(--color-badge-course-text);
+}
+
+.hero-cover .cover-placeholder.book {
+    background: var(--color-badge-book-bg);
+    color: var(--color-badge-book-text);
+}
+
+.hero-cover .cover-placeholder.book_audio {
+    background: var(--color-badge-book-audio-bg);
+    color: var(--color-badge-book-audio-text);
+}
+
+.hero-cover .cover-placeholder.audiobook {
+    background: var(--color-badge-audiobook-bg);
+    color: var(--color-badge-audiobook-text);
+}
 
 .hero-info {
     flex: 1;
@@ -419,8 +445,28 @@ body.page-grid .header nav a:hover {
     font-size: var(--font-size-annotation);
     font-weight: var(--font-weight-medium);
     text-transform: uppercase;
-    background: var(--color-accent);
-    color: var(--color-bg);
+    background: var(--color-surface-2);
+    color: var(--color-text-secondary);
+}
+
+.badge-course {
+    background: var(--color-badge-course-bg);
+    color: var(--color-badge-course-text);
+}
+
+.badge-book {
+    background: var(--color-badge-book-bg);
+    color: var(--color-badge-book-text);
+}
+
+.badge-book_audio {
+    background: var(--color-badge-book-audio-bg);
+    color: var(--color-badge-book-audio-text);
+}
+
+.badge-audiobook {
+    background: var(--color-badge-audiobook-bg);
+    color: var(--color-badge-audiobook-text);
 }
 
 /* Carte générique (section de contenu sur la fiche et les notes
@@ -599,6 +645,7 @@ body.page-grid .badge {
 }
 
 .presentation-text {
+    max-width: 70ch;
     margin: var(--space-8) 0;
     font-size: var(--font-size-body);
     line-height: var(--line-height-body);
@@ -612,6 +659,7 @@ body.page-grid .badge {
 }
 
 .presentation-note {
+    max-width: 70ch;
     border-left: 3px solid var(--color-accent);
     background: var(--color-surface-2);
     padding: var(--space-12) var(--space-16);
@@ -862,9 +910,13 @@ video {
 
 /* Bloc-notes (fiche + lecteur) */
 
+.note-card {
+    border-left: none;
+}
+
 .note-card textarea {
     width: 100%;
-    min-height: 160px;
+    min-height: 110px;
     background: var(--color-bg);
     border: 1px solid var(--color-border);
     color: var(--color-text);
@@ -895,6 +947,20 @@ video {
     align-items: center;
     gap: var(--space-12);
     margin-top: var(--space-12);
+}
+
+.print-link {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-annotation);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.print-link:hover {
+    color: var(--color-text);
 }
 
 #print-only {

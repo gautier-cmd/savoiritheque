@@ -33,7 +33,7 @@
                 {% else %}📄{% endif %}
             </div>
             <div class="card-body">
-                <span class="badge">{{ badge_label(item['item_type']) }}</span>
+                <span class="badge badge-{{ item['item_type'] }}">{{ badge_label(item['item_type']) }}</span>
                 <h2>{{ item['title'] }}</h2>
                 {% if item['meta_line'] %}
                 <div class="meta">{{ item['meta_line'] }}</div>
