@@ -646,13 +646,13 @@ backlog plus difficile à corriger sans le signaler d'abord.
 - Chapitres internes des M4B (ffprobe -show_chapters), distincts des
   chapitres par sous-dossier.
 - Nombre de pages des PDF.
-- Couvertures dans la grille : aucun fichier image dédié dans les
-  quatre cas de test, mais deux d'entre eux (les books) ont déjà une
-  couverture intégrée dans leur page de présentation, que presentation.py
-  extrait déjà pour la fiche — reste à la réutiliser aussi dans la
-  grille. Pour les deux autres (les courses, sans page de présentation
-  avec image) : à extraire autrement (première page PDF, pochette M4B,
-  image de vidéo) ou à récupérer en ligne.
+- Couvertures : deux étapes de l'ordre de priorité acté (voir
+  « Priorité des couvertures » ci-dessus) restent non implémentées —
+  l'import manuel d'image (étape 1) et la couverture Google Books si
+  des métadonnées de livre sont validées (étape 5). Le reste de
+  l'ordre (image du dossier, première page du PDF, pochette M4B,
+  image de vidéo, placeholder) est fait depuis la tranche 3, pour la
+  fiche comme pour la grille.
 - Métadonnées de formations par moissonnage des plateformes commerciales
   (TUTO.com, Udemy, LinkedIn, Elephorm...). Autorisé (usage strictement
   personnel, décision explicite de Gautier), mais pas encore fait : pas
