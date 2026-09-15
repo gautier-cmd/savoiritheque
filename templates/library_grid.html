@@ -67,7 +67,9 @@
                 {% if item['meta_line'] %}
                 <div class="meta">{{ item['meta_line'] }}</div>
                 {% endif %}
+                {% if item['total_duration'] %}
                 <div class="meta">{{ format_duration(item['total_duration']) }}</div>
+                {% endif %}
             </div>
         </a>
         {% endfor %}

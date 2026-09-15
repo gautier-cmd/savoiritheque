@@ -5,11 +5,26 @@
 
 {% macro manual_form(item_id, current=none) %}
 <form class="manual-form" method="post" action="{{ url_for('book_manual', item_id=item_id) }}">
-    <input type="text" name="title" placeholder="Titre" value="{{ current['title'] if current else '' }}">
-    <input type="text" name="authors" placeholder="Auteur(s)" value="{{ current['authors'] if current else '' }}">
-    <input type="text" name="publisher" placeholder="Éditeur" value="{{ current['publisher'] if current else '' }}">
-    <input type="text" name="published_year" placeholder="Année" value="{{ current['published_year'] if current else '' }}">
-    <input type="text" name="isbn" placeholder="ISBN" value="{{ current['isbn'] if current else '' }}">
+    <label class="manual-field">
+        <span>Titre</span>
+        <input type="text" name="title" value="{{ current['title'] if current else '' }}">
+    </label>
+    <label class="manual-field">
+        <span>Auteur</span>
+        <input type="text" name="authors" value="{{ current['authors'] if current else '' }}">
+    </label>
+    <label class="manual-field">
+        <span>Éditeur</span>
+        <input type="text" name="publisher" value="{{ current['publisher'] if current else '' }}">
+    </label>
+    <label class="manual-field">
+        <span>Année</span>
+        <input type="text" name="published_year" value="{{ current['published_year'] if current else '' }}">
+    </label>
+    <label class="manual-field">
+        <span>ISBN</span>
+        <input type="text" name="isbn" value="{{ current['isbn'] if current else '' }}">
+    </label>
     <button class="btn-mini" type="submit">Enregistrer</button>
 </form>
 {% endmacro %}
@@ -189,19 +204,22 @@
         {% endif %}
 
         {% if presentation %}
-            {% for block in presentation.blocks %}
-                {% if block.type == 'heading' %}
-                <h4 class="presentation-heading">{{ block.text }}</h4>
-                {% elif block.type == 'paragraph' %}
-                <p class="presentation-text">{{ block.text }}</p>
-                {% elif block.type == 'list' %}
-                <ul class="presentation-list">
-                    {% for list_item in block['items'] %}<li>{{ list_item }}</li>{% endfor %}
-                </ul>
-                {% elif block.type == 'note' %}
-                <div class="presentation-note">{{ block.text }}</div>
-                {% endif %}
-            {% endfor %}
+            <div class="presentation-content" id="presentation-content">
+                {% for block in presentation.blocks %}
+                    {% if block.type == 'heading' %}
+                    <h4 class="presentation-heading">{{ block.text }}</h4>
+                    {% elif block.type == 'paragraph' %}
+                    <p class="presentation-text">{{ block.text }}</p>
+                    {% elif block.type == 'list' %}
+                    <ul class="presentation-list">
+                        {% for list_item in block['items'] %}<li>{{ list_item }}</li>{% endfor %}
+                    </ul>
+                    {% elif block.type == 'note' %}
+                    <div class="presentation-note">{{ block.text }}</div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            <button type="button" class="btn-mini presentation-toggle" id="presentation-toggle" hidden>Lire la suite</button>
         {% elif not metadata_fields and not presentation_facts %}
         <p class="hint">Pas de description disponible.</p>
         {% endif %}
@@ -309,6 +327,25 @@
             }
         });
     }
+})();
+
+(function () {
+    var content = document.getElementById('presentation-content');
+    var toggle = document.getElementById('presentation-toggle');
+    if (!content || !toggle) {
+        return;
+    }
+
+    // Le bouton ne s'affiche que si le texte dépasse vraiment la
+    // hauteur repliée : pas de "Lire la suite" qui n'ouvrirait rien.
+    if (content.scrollHeight > content.clientHeight + 1) {
+        toggle.hidden = false;
+    }
+
+    toggle.addEventListener('click', function () {
+        var expanded = content.classList.toggle('expanded');
+        toggle.textContent = expanded ? 'Réduire' : 'Lire la suite';
+    });
 })();
 </script>
 {% endblock %}

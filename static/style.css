@@ -920,6 +920,34 @@ body.page-player .card {
     border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
+.presentation-content {
+    max-height: 240px;
+    overflow: hidden;
+    position: relative;
+}
+
+.presentation-content::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 48px;
+    background: linear-gradient(to bottom, transparent, var(--color-bg));
+}
+
+.presentation-content.expanded {
+    max-height: none;
+}
+
+.presentation-content.expanded::after {
+    display: none;
+}
+
+.presentation-toggle {
+    margin: var(--space-8) 0 var(--space-16);
+}
+
 /* Petits utilitaires partagés */
 
 .hint {
@@ -1006,14 +1034,35 @@ details summary {
     margin-right: var(--space-8);
 }
 
+.manual-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+}
+
+.manual-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.manual-field span {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-metadata);
+}
+
 .manual-form input {
     background: var(--color-bg);
     border: 1px solid var(--color-border);
     color: var(--color-text);
     padding: var(--space-8);
     border-radius: var(--radius-sm);
-    margin: var(--space-4) var(--space-8) var(--space-4) 0;
-    width: 170px;
+    width: 100%;
+}
+
+.manual-form button {
+    align-self: flex-start;
+    margin-top: var(--space-4);
 }
 
 /* Notes orphelines */
