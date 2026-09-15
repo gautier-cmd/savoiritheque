@@ -268,11 +268,6 @@ body.page-grid .header nav a:hover {
     color: var(--color-badge-book-text);
 }
 
-.hero-cover .cover-placeholder.book_audio {
-    background: var(--color-badge-book-audio-bg);
-    color: var(--color-badge-book-audio-text);
-}
-
 .hero-cover .cover-placeholder.audiobook {
     background: var(--color-badge-audiobook-bg);
     color: var(--color-badge-audiobook-text);
@@ -459,11 +454,6 @@ body.page-grid .header nav a:hover {
     color: var(--color-badge-book-text);
 }
 
-.badge-book_audio {
-    background: var(--color-badge-book-audio-bg);
-    color: var(--color-badge-book-audio-text);
-}
-
 .badge-audiobook {
     background: var(--color-badge-audiobook-bg);
     color: var(--color-badge-audiobook-text);
@@ -531,7 +521,6 @@ body.page-player .card {
 
 .cover.course { background: #7a2323; }
 .cover.book { background: #234a7a; }
-.cover.book_audio { background: #4a237a; }
 .cover.audiobook { background: #237a5c; }
 .cover.document { background: var(--color-surface-2); }
 

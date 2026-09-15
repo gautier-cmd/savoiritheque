@@ -21,12 +21,11 @@ from presentation import parse_presentation
 from book_metadata import default_query, find_isbn, search_candidates
 from covers import cover_cache_dir, cover_cache_path
 
-BOOK_ITEM_TYPES = ("book", "book_audio", "audiobook")
+BOOK_ITEM_TYPES = ("book", "audiobook")
 
 BADGE_LABELS = {
     "course": "FORMATION",
     "book": "LIVRE",
-    "book_audio": "LIVRE AUDIO",
     "audiobook": "AUDIOBOOK",
     "document": "DOCUMENT",
 }
@@ -64,9 +63,9 @@ BOOK_SOURCE_LABELS = {
     "manual": "Saisie manuelle",
 }
 
-# Mot au pluriel selon le type des médias réellement présents dans
-# l'item (pas selon son item_type, qui peut mélanger les deux — cas
-# book_audio : livre + audio dans les mêmes médias).
+# Mot au pluriel selon le media_type réellement présent dans l'item
+# (pas selon son item_type) — un seul type par item depuis la
+# suppression de book_audio, voir _media_label ci-dessous.
 MEDIA_TYPE_LABELS = {"video": "vidéos", "audio": "pistes audio", "book": "documents"}
 
 # Une année à 4 chiffres, jamais un fragment d'un nombre plus long
@@ -153,8 +152,15 @@ def _media_label(count: int, distinct_type_count: int, sample_type: str | None) 
     """Compteur de médias à afficher, ou None pour le masquer.
 
     Masqué à 0 ou 1 (un seul élément ne dit rien qu'on ne voie déjà
-    ailleurs sur la fiche) — jamais selon l'item_type, qui peut
-    mélanger plusieurs media_type (book_audio)."""
+    ailleurs sur la fiche).
+
+    Le repli sur "médias" quand distinct_type_count > 1 protège un
+    invariant : depuis la suppression de book_audio, un item n'a plus
+    qu'un seul media_type parmi ses médias (course -> video,
+    audiobook -> audio, book -> book, jamais un mélange). Cette
+    branche ne devrait donc jamais s'exécuter — si elle s'exécutait
+    quand même, mieux vaut annoncer "12 médias" que "12 vidéos" sur un
+    item qui contient autre chose."""
 
     if count < 2:
         return None

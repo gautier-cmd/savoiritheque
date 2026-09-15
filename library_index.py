@@ -267,14 +267,11 @@ def classify_item(files: list[Path]) -> str:
     if has_video:
         return "course"
 
-    if has_book and has_audio:
-        return "book_audio"
+    if has_audio:
+        return "audiobook"
 
     if has_book:
         return "book"
-
-    if has_audio:
-        return "audiobook"
 
     return "document"
 
@@ -309,10 +306,11 @@ def classify_file(
         return ("media", "audio")
 
     if ext in BOOK_EXTENSIONS:
-        # Important first heuristic:
-        # in a video course, PDFs/ebooks are usually supporting resources.
-        # In a book/audiobook item, they are primary media.
-        if item_type == "course":
+        # In a course or an audiobook, a PDF/ebook alongside the
+        # video/audio is a supporting resource, never the primary
+        # media — only a "book" item (no video, no audio) has one as
+        # its actual media.
+        if item_type in ("course", "audiobook"):
             return ("resource", "document")
 
         return ("media", "book")

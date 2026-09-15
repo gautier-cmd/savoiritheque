@@ -147,14 +147,14 @@ par tri naturel (10 après 9).
 
 ### Classification actuelle (heuristique, à améliorer)
 
-    contient vidéo        -> course
-    livre + audio         -> book_audio
-    livre                 -> book
-    audio                 -> audiobook
-    sinon                 -> document
+    contient vidéo         -> course
+    contient audio         -> audiobook
+    livre sans audio       -> book
+    sinon                  -> document
 
-    PDF dans un course    -> resource
-    PDF dans un book      -> media
+    PDF dans un course     -> resource
+    PDF dans un audiobook  -> resource
+    PDF dans un book       -> media
 
 ### Bibliothèque de test
 
@@ -193,7 +193,7 @@ leur position dans le corps de page.
 
 ### Métadonnées de livres (book_metadata.py)
 
-Sur la fiche d'un item de type book/book_audio/audiobook, une carte
+Sur la fiche d'un item de type book/audiobook, une carte
 "Métadonnées" propose une recherche sur Google Books (avec
 GOOGLE_BOOKS_API_KEY) et Open Library, en priorisant un ISBN détecté
 dans les noms de fichiers/dossier (somme de contrôle vérifiée) sur une
@@ -424,11 +424,11 @@ item :
 1. Une image déjà présente dans le dossier de l'item (`resources` avec
    `resource_type = 'image'`) — recopiée en JPEG à taille plafonnée
    (480px) plutôt qu'utilisée telle quelle, pour un format uniforme.
-2. book/book_audio : première page du PDF (`pdftoppm -singlefile`,
-   évite le suffixe de page qu'il ajoute sinon).
-3. audiobook/book_audio : pochette intégrée au M4B (`ffmpeg`, réencodée
-   en JPEG — le flux copié tel quel donnerait un format variable selon
-   le fichier).
+2. book : première page du PDF (`pdftoppm -singlefile`, évite le
+   suffixe de page qu'il ajoute sinon).
+3. audiobook : pochette intégrée au M4B (`ffmpeg`, réencodée en JPEG —
+   le flux copié tel quel donnerait un format variable selon le
+   fichier).
 4. course : une frame de la première vidéo, à 10% de sa durée (plafond
    15s, jamais avant 1s) — jamais la première seconde, souvent un écran
    noir ou un générique.
@@ -493,7 +493,7 @@ Cinq corrections demandées par Gautier :
      encore commencée.
 3. **Bouton d'action principal** du hero : lien direct vers la première
    vidéo (`first_video_id`) si l'item en a une, sinon un bouton désactivé
-   pour livre/livre audio/audiobook (pas encore de lecteur audio/PDF).
+   pour livre/audiobook (pas encore de lecteur audio/PDF).
    Le libellé "Reprendre" (au lieu de "Regarder") suppose une
    progression enregistrée : pas encore le cas (voir backlog "sauvegarde
    de la position de lecture"), donc seul "Regarder" est atteignable
@@ -585,6 +585,14 @@ position pour EPUB.
 
 ## Backlog (ne pas traiter sans demande explicite)
 
+- Depuis la suppression de book_audio, un item contenant un PDF et un
+  M4B est un audiobook et prend la pochette du M4B comme couverture ;
+  le PDF, devenu ressource, n'est plus source d'image. Cela contredit
+  l'ordre de priorité des couvertures acté en spécification, qui place
+  la première page du PDF possédé avant la pochette. À trancher
+  lorsque cet ordre sera implémenté : soit le PDF-ressource d'un
+  audiobook redevient source de couverture, soit la spécification est
+  amendée. Aucun item concerné dans la bibliothèque actuelle.
 - Les fichiers .mp4 des formations portent un tag `title` contenant le
   vrai titre éditorial, avec accents et apostrophes (vérifié : 307/307
   sur Copywriter et Motion Design). Ce titre diffère du nom de fichier

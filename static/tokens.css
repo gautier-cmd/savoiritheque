@@ -72,13 +72,6 @@
     --color-badge-audiobook-bg: #1F5A52;
     --color-badge-audiobook-text: #BFE8DF;
 
-    /* Livre audio : pas de valeur donnée (le spec ne couvre que
-       Formation/Livre/Audiobook) — provisoire, entre les teintes
-       Livre et Audiobook, aucun item de la bibliothèque de test n'est
-       de ce type. À remplacer si une valeur définitive est fournie. */
-    --color-badge-book-audio-bg: #4A5A1F;
-    --color-badge-book-audio-text: #E0EAB8;
-
     /* -----------------------------------------------------------
        Typographie
        ----------------------------------------------------------- */

@@ -20,9 +20,7 @@ from pathlib import Path
 EXTRACT_TIMEOUT_SECONDS = 30
 COVER_MAX_WIDTH = 480
 
-# Priorité pour les items qui ont à la fois un PDF et un M4B
-# (item_type book_audio) : le livre passe avant l'audio.
-COVER_ITEM_TYPES = ("book", "book_audio", "audiobook", "course")
+COVER_ITEM_TYPES = ("book", "audiobook", "course")
 
 
 def cover_cache_dir(db_path: Path) -> Path:
@@ -170,7 +168,7 @@ def ensure_cover(
         if source.is_file() and copy_existing_image(source, out_path):
             return out_path
 
-    if item["item_type"] in ("book", "book_audio"):
+    if item["item_type"] == "book":
         pdf_media = next(
             (m for m in media_rows if m["extension"] == ".pdf"), None
         )
@@ -179,7 +177,7 @@ def ensure_cover(
             if source.is_file() and extract_pdf_first_page(source, out_path):
                 return out_path
 
-    if item["item_type"] in ("audiobook", "book_audio"):
+    if item["item_type"] == "audiobook":
         m4b_media = next(
             (m for m in media_rows if m["extension"] == ".m4b"), None
         )
