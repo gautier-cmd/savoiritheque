@@ -1,4 +1,5 @@
 {% extends "_base.html" %}
+{% from "_type_icon.html" import type_icon %}
 
 {% block title %}Studia{% endblock %}
 
@@ -21,20 +22,48 @@
 
 {% block content %}
 <div class="container">
-    <div class="grid">
+    <div class="library-toolbar">
+        <input type="search" id="library-search" class="library-search" placeholder="Rechercher un titre, un auteur…" aria-label="Rechercher un titre, un auteur">
+
+        <div class="library-filters" role="group" aria-label="Filtrer par type">
+            <button type="button" class="filter-chip active" data-filter="all">Tous <span class="filter-count">{{ items|length }}</span></button>
+            {% if type_counts.get('course') %}
+            <button type="button" class="filter-chip" data-filter="course">Formations <span class="filter-count">{{ type_counts['course'] }}</span></button>
+            {% endif %}
+            {% if type_counts.get('book') %}
+            <button type="button" class="filter-chip" data-filter="book">Livres <span class="filter-count">{{ type_counts['book'] }}</span></button>
+            {% endif %}
+            {% if type_counts.get('audiobook') %}
+            <button type="button" class="filter-chip" data-filter="audiobook">Audiobooks <span class="filter-count">{{ type_counts['audiobook'] }}</span></button>
+            {% endif %}
+        </div>
+
+        <select id="library-sort" class="library-sort" aria-label="Trier">
+            <option value="title">Titre (A→Z)</option>
+            <option value="recent">Récemment ajoutés</option>
+        </select>
+    </div>
+
+    <div class="grid" id="library-grid">
         {% for item in items %}
-        <a class="card" href="{{ url_for('item_detail', item_id=item['id']) }}">
+        <a class="card" href="{{ url_for('item_detail', item_id=item['id']) }}"
+           data-type="{{ item['item_type'] }}"
+           data-title="{{ item['title']|lower }}"
+           data-author="{{ (item['author'] or '')|lower }}"
+           data-created-at="{{ item['created_at'] }}">
             <div class="cover {{ item['item_type'] }}">
                 {% if item['cover_url'] %}
                 <img src="{{ item['cover_url'] }}" alt="">
-                {% elif item['item_type'] == 'course' %}🎬
-                {% elif item['item_type'] == 'book' %}📖
-                {% elif item['item_type'] == 'audiobook' %}🎧
-                {% else %}📄{% endif %}
+                {% else %}
+                {{ type_icon(item['item_type'], size='42px') }}
+                {% endif %}
             </div>
             <div class="card-body">
                 <span class="badge badge-{{ item['item_type'] }}">{{ badge_label(item['item_type']) }}</span>
-                <h2>{{ item['title'] }}</h2>
+                <h2 class="card-title">{{ item['title'] }}</h2>
+                {% if item['author'] %}
+                <div class="card-author">{{ item['author'] }}</div>
+                {% endif %}
                 {% if item['meta_line'] %}
                 <div class="meta">{{ item['meta_line'] }}</div>
                 {% endif %}
@@ -43,5 +72,112 @@
         </a>
         {% endfor %}
     </div>
+
+    <p id="library-empty" class="hint" hidden>Aucun résultat.</p>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    var STORAGE_KEY = 'studia-library-state';
+    var searchInput = document.getElementById('library-search');
+    var sortSelect = document.getElementById('library-sort');
+    var chips = document.querySelectorAll('.filter-chip');
+    var grid = document.getElementById('library-grid');
+    var cards = Array.prototype.slice.call(grid.querySelectorAll('.card'));
+    var emptyMessage = document.getElementById('library-empty');
+
+    function loadState() {
+        try {
+            return JSON.parse(sessionStorage.getItem(STORAGE_KEY) || '{}');
+        } catch (e) {
+            return {};
+        }
+    }
+
+    function saveState(state) {
+        try {
+            sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        } catch (e) {
+            /* stockage indisponible (navigation privée...) : la session en cours continue sans persistance */
+        }
+    }
+
+    var state = Object.assign({search: '', filter: 'all', sort: 'title'}, loadState());
+
+    function applySort() {
+        var sorted = cards.slice();
+        if (state.sort === 'recent') {
+            sorted.sort(function (a, b) {
+                return b.dataset.createdAt.localeCompare(a.dataset.createdAt);
+            });
+        } else {
+            sorted.sort(function (a, b) {
+                return a.dataset.title.localeCompare(b.dataset.title);
+            });
+        }
+        sorted.forEach(function (card) { grid.appendChild(card); });
+    }
+
+    function applyFilterAndSearch() {
+        var query = state.search.trim().toLowerCase();
+        var visibleCount = 0;
+
+        cards.forEach(function (card) {
+            var matchesType = state.filter === 'all' || card.dataset.type === state.filter;
+            var matchesQuery = !query
+                || card.dataset.title.indexOf(query) !== -1
+                || card.dataset.author.indexOf(query) !== -1;
+            var visible = matchesType && matchesQuery;
+            card.hidden = !visible;
+            if (visible) { visibleCount += 1; }
+        });
+
+        emptyMessage.hidden = visibleCount !== 0;
+    }
+
+    function render() {
+        applySort();
+        applyFilterAndSearch();
+    }
+
+    function restoreControls() {
+        searchInput.value = state.search;
+        sortSelect.value = state.sort;
+        chips.forEach(function (chip) {
+            chip.classList.toggle('active', chip.dataset.filter === state.filter);
+        });
+    }
+
+    restoreControls();
+    render();
+
+    var searchTimer = null;
+    searchInput.addEventListener('input', function () {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(function () {
+            state.search = searchInput.value;
+            saveState(state);
+            applyFilterAndSearch();
+        }, 150);
+    });
+
+    sortSelect.addEventListener('change', function () {
+        state.sort = sortSelect.value;
+        saveState(state);
+        applySort();
+        applyFilterAndSearch();
+    });
+
+    chips.forEach(function (chip) {
+        chip.addEventListener('click', function () {
+            state.filter = chip.dataset.filter;
+            saveState(state);
+            chips.forEach(function (c) { c.classList.toggle('active', c === chip); });
+            applyFilterAndSearch();
+        });
+    });
+})();
+</script>
 {% endblock %}

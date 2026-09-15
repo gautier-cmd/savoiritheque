@@ -585,6 +585,20 @@ position pour EPUB.
 
 ## Backlog (ne pas traiter sans demande explicite)
 
+- `fetch_item_author()` (grille) relit et reparse la page de
+  présentation de chaque item à chaque chargement de `/`, sans cache
+  ni champ stocké. Mesuré : 4,45 ms/item. Extrapolé linéairement (pas
+  mesuré à cette échelle) : ≈ 890 ms pour 200 items, ≈ 4,45 s pour
+  1000 — inquiétant. À revoir si la bibliothèque grossit, par exemple
+  en stockant l'auteur résolu en base au moment du scan/de la
+  validation plutôt qu'en le recalculant à chaque requête.
+- « Récemment ajoutés » (tri de la grille) trie sur `items.created_at`,
+  écrit une seule fois à la première insertion et jamais réécrit par
+  un rescan (vérifié dans le SQL d'upsert) — fiable tant que la base
+  n'est pas reconstruite depuis zéro. Sur la base de test actuelle,
+  les 4 items ont été insérés en une seule passe à 22 ms d'écart : ce
+  tri n'y est pas significatif, seulement sur une bibliothèque
+  alimentée au fil du temps.
 - Depuis la suppression de book_audio, un item contenant un PDF et un
   M4B est un audiobook et prend la pochette du M4B comme couverture ;
   le PDF, devenu ressource, n'est plus source d'image. Cela contredit

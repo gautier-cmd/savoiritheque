@@ -448,6 +448,39 @@ def fetch_book_state(conn, item_id: int) -> dict:
     }
 
 
+def fetch_item_author(library_root: Path, conn, item) -> str | None:
+    """Auteur/Formateur(s) résolu pour une carte de la grille.
+
+    Même résolution que la fiche (resolve_metadata_fields puis
+    extract_hero_fields, book_metadata validé avant présentation
+    locale) — seule la collecte de la présentation et de l'état livre
+    est refaite ici, la grille ne les a pas déjà en mémoire comme la
+    route /item/<id>.
+    """
+
+    resources = conn.execute(
+        "SELECT relative_path, resource_type FROM resources WHERE item_id = ?",
+        (item["id"],),
+    ).fetchall()
+    presentation_resource = next(
+        (r for r in resources if r["resource_type"] == "presentation"), None
+    )
+    presentation = (
+        read_presentation(
+            library_root, item["library_path"], presentation_resource["relative_path"]
+        )
+        if presentation_resource
+        else None
+    )
+    book = (
+        fetch_book_state(conn, item["id"])
+        if item["item_type"] in BOOK_ITEM_TYPES
+        else None
+    )
+    metadata_fields = resolve_metadata_fields(item["item_type"], presentation, book)
+    return extract_hero_fields(metadata_fields)["author"]
+
+
 def detect_isbn_for_item(conn, item) -> str | None:
     texts = [item["title"]]
     texts += [
@@ -723,6 +756,8 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
                     i.id,
                     i.title,
                     i.item_type,
+                    i.library_path,
+                    i.created_at,
                     (SELECT COUNT(*) FROM media m
                      WHERE m.item_id = i.id) AS media_count,
                     (SELECT COUNT(DISTINCT media_type) FROM media m
@@ -741,33 +776,38 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
                 """
             ).fetchall()
             orphan_note_count = len(fetch_orphan_notes(conn))
+
+            cache_dir = app.config["COVER_CACHE_DIR"]
+            library_root = app.config["LIBRARY_ROOT"]
+            items = []
+            type_counts: dict[str, int] = {}
+            for row in rows:
+                item = dict(row)
+                cover_file = cover_cache_path(cache_dir, item["id"])
+                item["cover_url"] = (
+                    url_for("item_cover", item_id=item["id"])
+                    if cover_file.is_file()
+                    else None
+                )
+                item["meta_line"] = build_meta_line(
+                    _media_label(
+                        item["media_count"],
+                        item["media_type_count"],
+                        item["media_type_sample"],
+                    ),
+                    describe_count(item["resource_count"], "ressources"),
+                    describe_count(item["chapter_count"], "chapitres"),
+                )
+                item["author"] = fetch_item_author(library_root, conn, item)
+                type_counts[item["item_type"]] = type_counts.get(item["item_type"], 0) + 1
+                items.append(item)
         finally:
             conn.close()
-
-        cache_dir = app.config["COVER_CACHE_DIR"]
-        items = []
-        for row in rows:
-            item = dict(row)
-            cover_file = cover_cache_path(cache_dir, item["id"])
-            item["cover_url"] = (
-                url_for("item_cover", item_id=item["id"])
-                if cover_file.is_file()
-                else None
-            )
-            item["meta_line"] = build_meta_line(
-                _media_label(
-                    item["media_count"],
-                    item["media_type_count"],
-                    item["media_type_sample"],
-                ),
-                describe_count(item["resource_count"], "ressources"),
-                describe_count(item["chapter_count"], "chapitres"),
-            )
-            items.append(item)
 
         return render_template(
             "library_grid.html",
             items=items,
+            type_counts=type_counts,
             format_duration=format_duration,
             orphan_note_count=orphan_note_count,
             badge_label=badge_label,
