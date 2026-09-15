@@ -1197,7 +1197,7 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
             conn.close()
 
         filename = media["relative_path"].rsplit("/", 1)[-1]
-        video_title = filename.rsplit(".", 1)[0]
+        video_title = clean_file_title(filename)
 
         return render_template(
             "video_player.html",

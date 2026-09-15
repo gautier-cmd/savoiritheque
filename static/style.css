@@ -1187,11 +1187,28 @@ video {
 
 .note-markers li {
     margin: var(--space-4) 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
 }
 
 .note-markers a {
     color: var(--color-accent);
     font-size: var(--font-size-metadata);
+}
+
+.marker-remove {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-annotation);
+    line-height: 1;
+    cursor: pointer;
+}
+
+.marker-remove:hover {
+    color: var(--color-danger);
 }
 
 .note-toolbar {

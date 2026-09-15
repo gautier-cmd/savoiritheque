@@ -34,19 +34,55 @@
         return date.toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'});
     }
 
+    // Un repère est une ligne "texte (/watch/id?t=secondes)" : le
+    // fragment entre parenthèses sert à repositionner le lecteur, ce
+    // n'est pas une information à montrer telle quelle (liste, aperçu,
+    // impression) — seule la zone de saisie, en texte brut, le laisse
+    // forcément visible.
+    function markerLineRegex() {
+        return /^(.*)\((\/watch\/\d+\?t=\d+)\)\s*$/gm;
+    }
+
+    function findMarkers() {
+        var re = markerLineRegex();
+        var markers = [];
+        var match;
+        while ((match = re.exec(textarea.value)) !== null) {
+            markers.push({
+                label: match[1].trim(),
+                href: match[2],
+                start: match.index,
+                end: match.index + match[0].length
+            });
+        }
+        return markers;
+    }
+
     function renderMarkers() {
         var list = document.getElementById('note-markers');
         list.innerHTML = '';
-        var re = /^(.*)\((\/watch\/\d+\?t=\d+)\)\s*$/gm;
-        var match;
-        while ((match = re.exec(textarea.value)) !== null) {
+        findMarkers().forEach(function (marker) {
             var li = document.createElement('li');
+
             var a = document.createElement('a');
-            a.href = match[2];
-            a.textContent = match[1].trim();
+            a.href = marker.href;
+            a.textContent = marker.label;
             li.appendChild(a);
+
+            var remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'marker-remove';
+            remove.title = 'Supprimer ce repère';
+            remove.setAttribute('aria-label', 'Supprimer ce repère');
+            remove.textContent = '✕';
+            remove.addEventListener('click', function () {
+                textarea.value = textarea.value.slice(0, marker.start) + textarea.value.slice(marker.end);
+                textarea.dispatchEvent(new Event('input'));
+            });
+            li.appendChild(remove);
+
             list.appendChild(li);
-        }
+        });
     }
 
     function saveToLocal() {
@@ -96,7 +132,10 @@
     });
 
     window.addEventListener('beforeprint', function () {
-        document.getElementById('print-note-text').textContent = textarea.value;
+        var printable = textarea.value.replace(markerLineRegex(), function (full, label) {
+            return label.trim();
+        });
+        document.getElementById('print-note-text').textContent = printable;
         document.querySelector('#print-only .print-date').textContent =
             new Date().toLocaleDateString('fr-FR');
     });
