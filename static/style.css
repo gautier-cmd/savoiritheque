@@ -321,8 +321,9 @@ body.page-grid .header nav a:hover {
     margin-top: var(--space-12);
 }
 
-/* Menu ⋮ du hero — troisième action, jamais aussi marquant que le
-   CTA : pas de fond, pas de bordure, juste le glyphe. */
+/* Menu ⋮ générique (hero, bloc Notes) — jamais aussi marquant que
+   l'action principale à côté : pas de fond, pas de bordure, juste le
+   glyphe. */
 .hero-menu {
     position: relative;
 }
@@ -1261,6 +1262,45 @@ video {
     border-left: none;
 }
 
+.note-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-12);
+}
+
+.note-header h3 {
+    margin-bottom: 0;
+}
+
+.note-format-toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+    margin-bottom: var(--space-8);
+}
+
+.note-format-toolbar .btn-mini {
+    margin-left: auto;
+}
+
+.toolbar-btn {
+    background: none;
+    border: 1px solid var(--color-border);
+    color: var(--color-text-secondary);
+    border-radius: var(--radius-sm);
+    padding: var(--space-4) var(--space-8);
+    font-size: var(--font-size-metadata);
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.toolbar-btn:hover {
+    background: var(--color-surface-2);
+    color: var(--color-text);
+}
+
 .note-card textarea {
     width: 100%;
     min-height: 110px;
@@ -1272,6 +1312,54 @@ video {
     font-family: inherit;
     font-size: var(--font-size-body);
     resize: vertical;
+}
+
+.note-preview {
+    min-height: 110px;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-12);
+    font-size: var(--font-size-body);
+    line-height: var(--line-height-body);
+}
+
+.note-preview :is(h1, h2, h3) {
+    color: var(--color-accent);
+    margin: var(--space-12) 0 var(--space-8);
+}
+
+.note-preview h1 {
+    font-size: var(--font-size-card-title);
+}
+
+.note-preview h2 {
+    font-size: var(--font-size-nav);
+}
+
+.note-preview h3 {
+    font-size: var(--font-size-body);
+}
+
+.note-preview p {
+    margin: var(--space-8) 0;
+}
+
+.note-preview ul {
+    margin: var(--space-8) 0;
+    padding-left: 1.3em;
+}
+
+.note-preview pre {
+    background: var(--color-surface-2);
+    padding: var(--space-12);
+    border-radius: var(--radius-sm);
+    overflow-x: auto;
+    margin: var(--space-8) 0;
+}
+
+.note-preview a {
+    color: var(--color-accent);
 }
 
 .note-markers {
@@ -1313,20 +1401,6 @@ video {
     margin-top: var(--space-12);
 }
 
-.print-link {
-    background: none;
-    border: none;
-    padding: 0;
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-annotation);
-    text-decoration: underline;
-    cursor: pointer;
-}
-
-.print-link:hover {
-    color: var(--color-text);
-}
-
 #print-only {
     display: none;
 }
@@ -1350,5 +1424,7 @@ video {
     #print-only pre {
         white-space: pre-wrap;
         font-family: inherit;
+        background: none;
+        border: 1px solid #ccc;
     }
 }

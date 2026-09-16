@@ -335,7 +335,7 @@
         });
     });
 
-    var heroMenu = document.querySelector('details.hero-menu');
+    var heroMenu = document.querySelector('.hero-actions details.hero-menu');
     if (heroMenu) {
         document.addEventListener('click', function (event) {
             if (heroMenu.open && !heroMenu.contains(event.target)) {
