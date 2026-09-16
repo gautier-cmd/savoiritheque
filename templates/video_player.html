@@ -1,7 +1,16 @@
 {% extends "_base.html" %}
 {% from "_note_widget.html" import render_note, render_print_block %}
 
-{% block title %}{{ media['relative_path'].rsplit('/', 1)[-1] }} - Studia{% endblock %}
+{% macro playlist_row(item) %}
+{% set filename = item['relative_path'].rsplit('/', 1)[-1] %}
+<a class="file-row {{ 'current' if item['id'] == current_media_id else '' }}"
+   href="{{ url_for('watch_video', media_id=item['id']) }}">
+    <span class="file-title">{{ clean_file_title(filename) }}</span>
+    <span class="file-meta">{{ format_duration(item['duration_seconds']) }}</span>
+</a>
+{% endmacro %}
+
+{% block title %}{{ clean_file_title(media['relative_path'].rsplit('/', 1)[-1]) }} - Studia{% endblock %}
 
 {% block body_class %}page-player{% endblock %}
 
@@ -11,7 +20,7 @@
 <div class="layout">
     <div class="main">
         <a class="back" href="{{ url_for('item_detail', item_id=media['item_id']) }}">← {{ media['item_title'] }}</a>
-        <h1>{{ media['relative_path'].rsplit('/', 1)[-1] }}</h1>
+        <h1>{{ clean_file_title(media['relative_path'].rsplit('/', 1)[-1]) }}</h1>
         <video id="player" controls autoplay src="{{ url_for('media_file', media_id=media['id']) }}"></video>
         <div class="nav-buttons">
             {% if prev_id %}
@@ -30,16 +39,29 @@
         {{ render_note(media['item_id'], note_text, note_updated_at, player_context=player_context) }}
     </div>
 
-    <div class="playlist">
-        {% for parent_path, media_list in chapters %}
-        <h3>{{ parent_path if parent_path else 'Racine' }}</h3>
-        {% for item in media_list %}
-        <a class="{{ 'current' if item['id'] == current_media_id else '' }}"
-           href="{{ url_for('watch_video', media_id=item['id']) }}">
-            {{ item['relative_path'].rsplit('/', 1)[-1] }}
-        </a>
-        {% endfor %}
-        {% endfor %}
+    <div class="playlist" id="playlist">
+        {% if chapters|length == 1 and not chapters[0][0] %}
+            {# Un seul groupe, à la racine de l'item : pas de sous-dossiers,
+               donc pas de vrai chapitre à nommer - liste directe. #}
+            {% for item in chapters[0][1] %}
+            {{ playlist_row(item) }}
+            {% endfor %}
+        {% else %}
+            {% for parent_path, media_list in chapters %}
+            {% set chapter_has_current = media_list|selectattr('id', 'equalto', current_media_id)|list|length > 0 %}
+            <details class="playlist-chapter" data-chapter="{{ parent_path }}" {% if chapter_has_current %}data-current open{% endif %}>
+                <summary>
+                    <span class="chevron">›</span>
+                    <span class="chapter-title">{{ parent_path if parent_path else 'Racine' }}</span>
+                </summary>
+                <div class="playlist-media">
+                    {% for item in media_list %}
+                    {{ playlist_row(item) }}
+                    {% endfor %}
+                </div>
+            </details>
+            {% endfor %}
+        {% endif %}
     </div>
 </div>
 {% endblock %}
@@ -70,6 +92,58 @@
         }
 
         syncPlaylistHeight();
+    })();
+</script>
+
+<script>
+    (function () {
+        var playlist = document.getElementById('playlist');
+        if (!playlist) {
+            return;
+        }
+
+        // Le chapitre courant s'ouvre toujours (pour montrer où on en
+        // est) et n'enregistre jamais son état : sinon, le fermer une
+        // fois masquerait la leçon en cours sur toute vidéo suivante
+        // du même chapitre. Les autres chapitres gardent l'état
+        // choisi par la personne, chapitre par chapitre, d'une vidéo
+        // à l'autre.
+        var storageKey = 'studia-playlist-open-' + {{ media['item_id'] | tojson }};
+
+        function loadState() {
+            try {
+                return JSON.parse(localStorage.getItem(storageKey) || '{}');
+            } catch (e) {
+                return {};
+            }
+        }
+
+        function saveState(state) {
+            try {
+                localStorage.setItem(storageKey, JSON.stringify(state));
+            } catch (e) {
+                /* stockage indisponible : la préférence ne survivra pas à cette page */
+            }
+        }
+
+        var state = loadState();
+
+        playlist.querySelectorAll('details.playlist-chapter').forEach(function (details) {
+            var key = details.getAttribute('data-chapter');
+            var isCurrent = details.hasAttribute('data-current');
+
+            if (!isCurrent && Object.prototype.hasOwnProperty.call(state, key)) {
+                details.open = state[key];
+            }
+
+            details.addEventListener('toggle', function () {
+                if (isCurrent) {
+                    return;
+                }
+                state[key] = details.open;
+                saveState(state);
+            });
+        });
     })();
 </script>
 

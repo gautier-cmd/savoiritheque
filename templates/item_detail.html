@@ -29,6 +29,18 @@
 </form>
 {% endmacro %}
 
+{% macro media_row(media) %}
+{% set filename = media['relative_path'].rsplit('/', 1)[-1] %}
+<div class="file-row">
+    {% if media['media_type'] == 'video' %}
+    <a class="file-title" href="{{ url_for('watch_video', media_id=media['id']) }}" title="{{ filename }}">{{ clean_file_title(filename) }}</a>
+    {% else %}
+    <span class="file-title" title="{{ filename }}">{{ clean_file_title(filename) }}</span>
+    {% endif %}
+    <span class="file-meta">{{ format_duration(media['duration_seconds']) }}</span>
+</div>
+{% endmacro %}
+
 {% block title %}{{ item['title'] }} - Studia{% endblock %}
 
 {% block body_class %}page-item relaxed{% endblock %}
@@ -226,28 +238,32 @@
     </div>
 
     <div class="tab-panel hidden" data-panel="programme">
-        {% for chapter in chapters %}
-        <details class="programme-chapter">
-            <summary>
-                <span class="chevron">›</span>
-                <span class="chapter-title">{{ chapter.parent_path if chapter.parent_path else 'Racine' }}</span>
-                <span class="chapter-meta">{{ chapter.meta }}</span>
-            </summary>
-            <div class="programme-media">
-                {% for media in chapter.media %}
-                {% set filename = media['relative_path'].rsplit('/', 1)[-1] %}
-                <div class="file-row">
-                    {% if media['media_type'] == 'video' %}
-                    <a class="file-title" href="{{ url_for('watch_video', media_id=media['id']) }}" title="{{ filename }}">{{ clean_file_title(filename) }}</a>
-                    {% else %}
-                    <span class="file-title" title="{{ filename }}">{{ clean_file_title(filename) }}</span>
-                    {% endif %}
-                    <span class="file-meta">{{ format_duration(media['duration_seconds']) }}</span>
+        {% if chapters|length == 1 and not chapters[0].parent_path %}
+            {# Un seul groupe, à la racine de l'item : pas de sous-dossiers,
+               donc pas de vrais chapitres à nommer. Un en-tête "Racine"
+               ne coifferait qu'un unique groupe contenant tout le
+               contenu — sans intérêt, on affiche la liste directement.
+               Le total (nombre de médias, durée) reste visible dans le
+               hero, qui couvre déjà tout l'item dans ce cas. #}
+            {% for media in chapters[0].media %}
+            {{ media_row(media) }}
+            {% endfor %}
+        {% else %}
+            {% for chapter in chapters %}
+            <details class="programme-chapter">
+                <summary>
+                    <span class="chevron">›</span>
+                    <span class="chapter-title">{{ chapter.parent_path if chapter.parent_path else 'Racine' }}</span>
+                    <span class="chapter-meta">{{ chapter.meta }}</span>
+                </summary>
+                <div class="programme-media">
+                    {% for media in chapter.media %}
+                    {{ media_row(media) }}
+                    {% endfor %}
                 </div>
-                {% endfor %}
-            </div>
-        </details>
-        {% endfor %}
+            </details>
+            {% endfor %}
+        {% endif %}
         {% if not chapters %}
         <p class="hint">Aucun média.</p>
         {% endif %}

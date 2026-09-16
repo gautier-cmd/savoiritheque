@@ -224,7 +224,7 @@ def fetch_video_playlist(conn, item_id: int):
 
     return conn.execute(
         """
-        SELECT id, relative_path, parent_path, sort_order
+        SELECT id, relative_path, parent_path, sort_order, duration_seconds
         FROM media
         WHERE item_id = ? AND media_type = 'video'
         ORDER BY sort_order
@@ -1214,6 +1214,8 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
                 "title": video_title,
                 "media_id": media_id,
             },
+            clean_file_title=clean_file_title,
+            format_duration=format_duration,
         )
 
     @app.route("/media/<int:media_id>/file")
