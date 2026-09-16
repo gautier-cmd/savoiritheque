@@ -125,6 +125,25 @@ def test_grille_liste_les_items(client) -> None:
     assert b"Motion Design" in response.data
 
 
+def test_grille_bibliotheque_vide_affiche_un_etat_dedie(tmp_path: Path) -> None:
+    empty_library = tmp_path / "empty-library"
+    empty_library.mkdir()
+    db_path = tmp_path / "empty.db"
+    scan_library(empty_library, db_path, verbose=False)
+
+    app = create_app(empty_library, db_path)
+    app.config["TESTING"] = True
+
+    with app.test_client() as test_client:
+        response = test_client.get("/")
+        data = response.data.decode()
+
+        assert response.status_code == 200
+        assert "Bibliothèque vide" in data
+        # Pas de barre de recherche/filtres pour une bibliothèque sans contenu.
+        assert 'id="library-search"' not in data
+
+
 def test_fiche_item_liste_les_chapitres_en_ordre(client) -> None:
     item_id = item_id_by_title(client, "Motion Design - la formation complete (TUTO.com)")
 
@@ -153,6 +172,7 @@ def test_fiche_item_inconnu_renvoie_404(client) -> None:
     response = client.get("/item/999")
 
     assert response.status_code == 404
+    assert "introuvable" in response.data.decode()
 
 
 def test_chapitre_racine_non_consecutif_reste_un_seul_groupe(

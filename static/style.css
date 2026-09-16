@@ -153,6 +153,15 @@ body.page-orphans .container {
     max-width: 800px;
 }
 
+body.page-error .container {
+    max-width: 600px;
+    padding-top: var(--space-64);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-16);
+}
+
 /* En-tête (grille, notes orphelines) — la fiche a son propre
    fil d'Ariane, plus léger (voir plus bas), elle ne suit pas ce
    patron "bandeau + titre". Sera revu pour de bon en tranche 4

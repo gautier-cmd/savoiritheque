@@ -1242,6 +1242,10 @@ def create_app(library_root: Path, db_path: Path) -> Flask:
 
         return send_file(file_path, mimetype=mimetype)
 
+    @app.errorhandler(404)
+    def not_found(error):
+        return render_template("not_found.html"), 404
+
     return app
 
 

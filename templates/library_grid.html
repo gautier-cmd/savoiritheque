@@ -22,6 +22,7 @@
 
 {% block content %}
 <div class="container">
+    {% if items %}
     <div class="library-toolbar">
         <input type="search" id="library-search" class="library-search" placeholder="Rechercher un titre, un auteur…" aria-label="Rechercher un titre, un auteur">
 
@@ -76,6 +77,9 @@
     </div>
 
     <p id="library-empty" class="hint" hidden>Aucun résultat.</p>
+    {% else %}
+    <p class="hint">Bibliothèque vide — aucun contenu n'a encore été scanné.</p>
+    {% endif %}
 </div>
 {% endblock %}
 
@@ -84,9 +88,13 @@
 (function () {
     var STORAGE_KEY = 'studia-library-state';
     var searchInput = document.getElementById('library-search');
+    var grid = document.getElementById('library-grid');
+    if (!searchInput || !grid) {
+        // Bibliothèque vide : ni barre d'outils ni grille à faire vivre.
+        return;
+    }
     var sortSelect = document.getElementById('library-sort');
     var chips = document.querySelectorAll('.filter-chip');
-    var grid = document.getElementById('library-grid');
     var cards = Array.prototype.slice.call(grid.querySelectorAll('.card'));
     var emptyMessage = document.getElementById('library-empty');
 
